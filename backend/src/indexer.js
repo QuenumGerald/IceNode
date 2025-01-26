@@ -5,7 +5,7 @@ const ethers = require('ethers');
 
 // Configuration en dur
 const RPC_URLS = {
-    'mainnet': 'https://api.avax.network/ext/bc/C/rpc',
+    'mainnet': 'https://avalanche-c-chain-rpc.publicnode.com',
     'dfk': 'https://subnets.avax.network/defi-kingdoms/dfk-chain/rpc',
     'swimmer': 'https://subnets.avax.network/swimmer/mainnet/rpc',
     'dexalot': 'https://subnets.avax.network/dexalot/mainnet/rpc'
@@ -23,7 +23,7 @@ function hexToNumber(hex) {
 async function fetchBlockTransactions(rpcUrl, subnet) {
     try {
         console.log(`Fetching transactions from ${subnet || 'C-Chain'} (${rpcUrl})`);
-        
+
         const response = await axios.post(rpcUrl, {
             jsonrpc: '2.0',
             id: 1,
@@ -101,7 +101,7 @@ async function fetchBlockTransactions(rpcUrl, subnet) {
 
 async function indexAllChains() {
     console.log('Starting indexing cycle...');
-    
+
     // Indexer C-Chain
     await fetchBlockTransactions(RPC_URLS['mainnet']);
 
@@ -111,14 +111,14 @@ async function indexAllChains() {
             await fetchBlockTransactions(url, subnet);
         }
     }
-    
+
     console.log('Finished indexing cycle');
 }
 
 // Exécuter l'indexation toutes les 10 secondes
 async function startIndexing() {
     console.log('Indexer started');
-    
+
     while (true) {
         try {
             await indexAllChains();
