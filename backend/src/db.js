@@ -1,10 +1,11 @@
 const { Pool } = require('pg');
 
+// URL de connexion en dur
 const pool = new Pool({
-    connectionString: process.env.DATABASE_URL || 'postgresql://postgres:egmMpvjpbAXVIZTAlWsGSSsWcVSQPgtE@postgres.railway.internal:5432/railway',
-    ssl: process.env.NODE_ENV === 'production' ? {
+    connectionString: 'postgresql://postgres:egmMpvjpbAXVIZTAlWsGSSsWcVSQPgtE@postgres.railway.internal:5432/railway',
+    ssl: {
         rejectUnauthorized: false
-    } : false
+    }
 });
 
 // Initialisation de la base de données

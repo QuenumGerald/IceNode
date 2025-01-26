@@ -12,12 +12,6 @@ const DB_DIR = path.dirname(DB_PATH);
 const RPC_URL = 'https://api.avax.network/ext/bc/C/rpc';
 const SUBNET_RPC_URLS = ['https://api.avax.network/ext/bc/C/rpc', 'https://api.dfkchain.com/ext/bc/C/rpc', 'https://dexalot-rpc.com/ext/bc/C/rpc'];
 
-console.log('Environment variables:');
-console.log('DB_PATH:', DB_PATH);
-console.log('RPC_URL:', RPC_URL);
-console.log('SUBNET_RPC_URLS:', SUBNET_RPC_URLS);
-console.log('NODE_ENV:', process.env.NODE_ENV);
-
 // Fonction pour s'assurer que le dossier data existe avec les bonnes permissions
 function ensureDataDirectory() {
     console.log(`Setting up data directory: ${DB_DIR}`);
