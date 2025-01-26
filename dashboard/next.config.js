@@ -9,6 +9,9 @@ const nextConfig = {
   typescript: {
     // Désactiver la vérification TypeScript pendant le build
     ignoreBuildErrors: true,
+  },
+  env: {
+    PORT: process.env.PORT || 8080
   }
 }
 

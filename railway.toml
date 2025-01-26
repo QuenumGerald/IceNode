@@ -7,6 +7,7 @@ restartPolicyType = "on_failure"
 
 [env]
 NODE_ENV = "production"
+PORT = "8080"
 
 [[services]]
 name = "backend"
@@ -20,4 +21,4 @@ name = "dashboard"
 buildCommand = "cd dashboard && rm -rf node_modules && npm install && npm run build"
 startCommand = "cd dashboard && npm start"
 healthcheckPath = "/"
-port = 3000
+port = 8080
