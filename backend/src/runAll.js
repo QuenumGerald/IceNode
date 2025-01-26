@@ -1,10 +1,14 @@
 const express = require('express');
 const cors = require('cors');
-const { startIndexing } = require('./indexer');
 const { initDb, getDb } = require('./db');
+const { startIndexing } = require('./indexer');
+const searchRoutes = require('./routes/search');
 
 const app = express();
+const port = process.env.PORT || 3000;
+
 app.use(cors());
+app.use(express.json());
 
 // Route pour récupérer les transactions
 app.get('/transactions', async (req, res) => {
@@ -150,6 +154,9 @@ app.get('/health', (req, res) => {
     });
 });
 
+// Route de recherche
+app.use('/search', searchRoutes);
+
 // Initialiser la base de données et démarrer le serveur
 async function start() {
     let retries = 5;
@@ -164,7 +171,6 @@ async function start() {
             console.log(`[${new Date().toISOString()}] Base de données initialisée avec succès`);
             
             // Démarrer le serveur sur le port défini par Railway ou 3000 par défaut
-            const port = process.env.PORT || 3000;
             app.listen(port, '0.0.0.0', () => {
                 console.log(`[${new Date().toISOString()}] Serveur démarré sur le port ${port}`);
             });
