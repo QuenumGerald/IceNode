@@ -18,7 +18,12 @@ port = 3001
 [[services.env]]
 RPC_URL = "https://api.avax.network/ext/bc/C/rpc"
 SUBNET_RPC_URLS = '{"DFK":"https://subnets.avax.network/defi-kingdoms/dfk-chain/rpc","Swimmer":"https://subnets.avax.network/swimmer/mainnet/rpc","Dexalot":"https://subnets.avax.network/dexalot/mainnet/rpc"}'
-DB_PATH = "/opt/render/project/src/data/icenode.db"
+DB_PATH = "/data/icenode.db"
+
+[[services.volumes]]
+name = "data"
+mountPath = "/data"
+newVolume = true
 
 [[services]]
 name = "dashboard"

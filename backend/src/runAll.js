@@ -11,44 +11,70 @@ displayBanner();
 const DB_PATH = process.env.DB_PATH || path.join(__dirname, '../data/icenode.db');
 const DB_DIR = path.dirname(DB_PATH);
 
+console.log('Environment variables:');
+console.log('DB_PATH:', process.env.DB_PATH);
+console.log('RPC_URL:', process.env.RPC_URL);
+console.log('SUBNET_RPC_URLS:', process.env.SUBNET_RPC_URLS);
+console.log('NODE_ENV:', process.env.NODE_ENV);
+
 // Fonction pour s'assurer que le dossier data existe avec les bonnes permissions
 function ensureDataDirectory() {
     console.log(`Setting up data directory: ${DB_DIR}`);
     
-    // Créer le dossier s'il n'existe pas
-    if (!fs.existsSync(DB_DIR)) {
-        fs.mkdirSync(DB_DIR, { recursive: true });
+    try {
+        // Créer le dossier s'il n'existe pas
+        if (!fs.existsSync(DB_DIR)) {
+            console.log(`Creating directory: ${DB_DIR}`);
+            fs.mkdirSync(DB_DIR, { recursive: true });
+        }
+        
+        // Définir les permissions
+        console.log(`Setting permissions for: ${DB_DIR}`);
+        fs.chmodSync(DB_DIR, '777');
+        console.log('Set directory permissions to 777');
+        
+        // Supprimer la base de données si elle existe
+        if (fs.existsSync(DB_PATH)) {
+            console.log(`Removing existing database: ${DB_PATH}`);
+            fs.unlinkSync(DB_PATH);
+            console.log('Removed existing file:', path.basename(DB_PATH));
+        }
+        
+        // Créer un fichier vide avec les bonnes permissions
+        console.log(`Creating empty database: ${DB_PATH}`);
+        fs.writeFileSync(DB_PATH, '');
+        fs.chmodSync(DB_PATH, '666');
+        console.log('Created empty database file with permissions 666');
+    } catch (error) {
+        console.error('Error in ensureDataDirectory:', error);
+        throw error;
     }
-    
-    // Définir les permissions
-    fs.chmodSync(DB_DIR, '777');
-    console.log('Set directory permissions to 777');
-    
-    // Supprimer la base de données si elle existe
-    if (fs.existsSync(DB_PATH)) {
-        fs.unlinkSync(DB_PATH);
-        console.log('Removed existing file:', path.basename(DB_PATH));
-    }
-    
-    // Créer un fichier vide avec les bonnes permissions
-    fs.writeFileSync(DB_PATH, '');
-    fs.chmodSync(DB_PATH, '666');
-    console.log('Created empty database file with permissions 666');
 }
 
 // Fonction pour démarrer un processus
 function startProcess(scriptPath, args = [], name = '') {
     console.log(`Starting ${name}...`);
-    const nodeProcess = spawn('node', [scriptPath, ...args], {
-        stdio: 'inherit',
-        env: process.env
-    });
+    console.log(`Command: node ${scriptPath} ${args.join(' ')}`);
     
-    nodeProcess.on('error', (err) => {
-        console.error(`Error starting ${name}:`, err);
-    });
-    
-    return nodeProcess;
+    try {
+        const nodeProcess = spawn('node', [scriptPath, ...args], {
+            stdio: 'inherit',
+            env: process.env
+        });
+        
+        nodeProcess.on('error', (err) => {
+            console.error(`Error in ${name}:`, err);
+        });
+        
+        nodeProcess.on('exit', (code) => {
+            console.log(`${name} exited with code ${code}`);
+        });
+        
+        return nodeProcess;
+    } catch (error) {
+        console.error(`Error starting ${name}:`, error);
+        throw error;
+    }
 }
 
 // Démarrer tous les services
@@ -77,6 +103,8 @@ async function startAll() {
         console.log('Starting Dexalot Indexer...');
         startProcess(path.join(__dirname, 'indexer.js'), ['dexalot'], 'Dexalot Chain Indexer');
 
+        console.log('All services started successfully!');
+
     } catch (error) {
         console.error('Error starting services:', error);
         process.exit(1);
@@ -85,4 +113,7 @@ async function startAll() {
 
 // Démarrer tout
 console.log('Starting all services...');
-startAll();
+startAll().catch(error => {
+    console.error('Fatal error:', error);
+    process.exit(1);
+});
