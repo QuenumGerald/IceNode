@@ -14,7 +14,7 @@ const nextConfig = {
     PORT: process.env.PORT || 8080
   },
   experimental: {
-    optimizeCss: true
+    optimizeCss: false // Désactivons cette option qui cause des problèmes
   }
 }
 
