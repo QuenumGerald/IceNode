@@ -61,10 +61,18 @@ async function connectWithRetry(maxRetries = 5) {
 // Initialisation de la base de données
 async function initDb() {
     try {
+        if (!process.env.DATABASE_URL) {
+            throw new Error('DATABASE_URL n\'est pas définie dans les variables d\'environnement');
+        }
+
+        console.log(`[${new Date().toISOString()}] Initialisation de la connexion à PostgreSQL...`);
+        
         // Utilisation de l'URL de la base de données depuis les variables d'environnement
         pool = new Pool({
-            connectionString: process.env.DATABASE_URL || 'postgresql://postgres:postgres@localhost:5432/icenode',
-            ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
+            connectionString: process.env.DATABASE_URL,
+            ssl: {
+                rejectUnauthorized: false // Nécessaire pour Railway
+            }
         });
 
         // Configuration du gestionnaire d'erreurs du pool
@@ -114,7 +122,7 @@ async function initDb() {
             client.release();
         }
     } catch (err) {
-        console.error('Erreur lors de l\'initialisation de la base de données:', err);
+        console.error(`[${new Date().toISOString()}] Erreur lors de l'initialisation de la base de données:`, err);
         throw err;
     }
 }
