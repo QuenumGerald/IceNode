@@ -61,19 +61,22 @@ async function connectWithRetry(maxRetries = 5) {
 // Initialisation de la base de données
 async function initDb() {
     try {
-        if (!process.env.DATABASE_URL) {
-            throw new Error('DATABASE_URL n\'est pas définie dans les variables d\'environnement');
-        }
-
         console.log(`[${new Date().toISOString()}] Initialisation de la connexion à PostgreSQL...`);
         
-        // Utilisation de l'URL de la base de données depuis les variables d'environnement
-        pool = new Pool({
-            connectionString: process.env.DATABASE_URL,
-            ssl: {
-                rejectUnauthorized: false // Nécessaire pour Railway
+        // Configuration de la connexion PostgreSQL
+        const isRailwayInternal = process.env.RAILWAY_ENVIRONMENT === 'production';
+        const dbConfig = {
+            connectionString: isRailwayInternal 
+                ? 'postgresql://postgres:XMJUMbyeMKevHMikWrvBGGFoWSOqiIED@postgres.railway.internal:5432/railway'
+                : process.env.DATABASE_URL,
+            ssl: isRailwayInternal ? false : {
+                rejectUnauthorized: false
             }
-        });
+        };
+
+        console.log(`[${new Date().toISOString()}] Mode de connexion: ${isRailwayInternal ? 'Railway Internal' : 'External'}`);
+        
+        pool = new Pool(dbConfig);
 
         // Configuration du gestionnaire d'erreurs du pool
         pool.on('error', (err) => {
@@ -83,32 +86,94 @@ async function initDb() {
 
         const client = await connectWithRetry();
         try {
-            // Création de la table transactions avec les nouveaux champs
-            await client.query(`
-                CREATE TABLE IF NOT EXISTS transactions (
-                    hash VARCHAR(66) PRIMARY KEY,
-                    from_address VARCHAR(42) NOT NULL,
-                    to_address VARCHAR(42),
-                    value TEXT NOT NULL,
-                    subnet VARCHAR(50) NOT NULL,
-                    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-                    is_contract_creation BOOLEAN DEFAULT FALSE,
-                    is_contract BOOLEAN DEFAULT FALSE,
-                    contract_address VARCHAR(42),
-                    contract_code TEXT,
-                    contract_abi TEXT
-                )
+            // Vérifier si la table existe déjà
+            const tableExists = await client.query(`
+                SELECT EXISTS (
+                    SELECT FROM information_schema.tables 
+                    WHERE table_name = 'transactions'
+                );
             `);
 
-            // Index pour améliorer les performances des recherches
-            await client.query(`
-                CREATE INDEX IF NOT EXISTS idx_transactions_from_address ON transactions(from_address);
-                CREATE INDEX IF NOT EXISTS idx_transactions_to_address ON transactions(to_address);
-                CREATE INDEX IF NOT EXISTS idx_transactions_subnet ON transactions(subnet);
-                CREATE INDEX IF NOT EXISTS idx_transactions_created_at ON transactions(created_at);
-                CREATE INDEX IF NOT EXISTS idx_transactions_is_contract ON transactions(is_contract);
-                CREATE INDEX IF NOT EXISTS idx_transactions_contract_address ON transactions(contract_address);
-            `);
+            if (!tableExists.rows[0].exists) {
+                // Création de la table si elle n'existe pas
+                await client.query(`
+                    CREATE TABLE transactions (
+                        hash VARCHAR(66) PRIMARY KEY,
+                        from_address VARCHAR(42) NOT NULL,
+                        to_address VARCHAR(42),
+                        value TEXT NOT NULL,
+                        subnet VARCHAR(50) NOT NULL,
+                        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+                        is_contract_creation BOOLEAN DEFAULT FALSE,
+                        is_contract BOOLEAN DEFAULT FALSE,
+                        contract_address VARCHAR(42),
+                        contract_code TEXT,
+                        contract_abi TEXT
+                    )
+                `);
+                console.log(`[${new Date().toISOString()}] Table transactions créée`);
+            } else {
+                // Ajouter les nouvelles colonnes si elles n'existent pas
+                const columnsToAdd = [
+                    'is_contract_creation BOOLEAN DEFAULT FALSE',
+                    'is_contract BOOLEAN DEFAULT FALSE',
+                    'contract_address VARCHAR(42)',
+                    'contract_code TEXT',
+                    'contract_abi TEXT'
+                ];
+
+                for (const column of columnsToAdd) {
+                    const columnName = column.split(' ')[0];
+                    try {
+                        await client.query(`
+                            ALTER TABLE transactions 
+                            ADD COLUMN IF NOT EXISTS ${column}
+                        `);
+                        console.log(`[${new Date().toISOString()}] Colonne ${columnName} ajoutée ou déjà existante`);
+                    } catch (err) {
+                        console.error(`[${new Date().toISOString()}] Erreur lors de l'ajout de la colonne ${columnName}:`, err);
+                    }
+                }
+            }
+
+            // Supprimer les anciens index s'ils existent
+            const dropIndexes = [
+                'idx_transactions_from_address',
+                'idx_transactions_to_address',
+                'idx_transactions_subnet',
+                'idx_transactions_created_at',
+                'idx_transactions_is_contract',
+                'idx_transactions_contract_address'
+            ];
+
+            for (const indexName of dropIndexes) {
+                try {
+                    await client.query(`DROP INDEX IF EXISTS ${indexName}`);
+                    console.log(`[${new Date().toISOString()}] Index ${indexName} supprimé s'il existait`);
+                } catch (err) {
+                    console.error(`[${new Date().toISOString()}] Erreur lors de la suppression de l'index ${indexName}:`, err);
+                }
+            }
+
+            // Créer les nouveaux index
+            const createIndexes = [
+                'CREATE INDEX idx_transactions_from_address ON transactions(from_address)',
+                'CREATE INDEX idx_transactions_to_address ON transactions(to_address)',
+                'CREATE INDEX idx_transactions_subnet ON transactions(subnet)',
+                'CREATE INDEX idx_transactions_created_at ON transactions(created_at)',
+                'CREATE INDEX idx_transactions_is_contract ON transactions(is_contract)',
+                'CREATE INDEX idx_transactions_contract_address ON transactions(contract_address)'
+            ];
+
+            for (const createIndex of createIndexes) {
+                try {
+                    await client.query(createIndex);
+                    const indexName = createIndex.match(/idx_\w+/)[0];
+                    console.log(`[${new Date().toISOString()}] Index ${indexName} créé`);
+                } catch (err) {
+                    console.error(`[${new Date().toISOString()}] Erreur lors de la création de l'index:`, err);
+                }
+            }
 
             console.log(`[${new Date().toISOString()}] Base de données initialisée avec succès`);
 
