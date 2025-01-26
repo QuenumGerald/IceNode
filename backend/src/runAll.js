@@ -10,13 +10,37 @@ app.use(cors());
 app.get('/transactions', async (req, res) => {
     try {
         const db = await getDb();
-        const result = await db.query('SELECT * FROM transactions ORDER BY created_at DESC LIMIT 100');
-        res.json(result.rows || []); // Retourne un tableau vide si pas de résultats
+        const { subnet, search } = req.query;
+        
+        let query = 'SELECT * FROM transactions';
+        const params = [];
+        const conditions = [];
+        
+        if (subnet) {
+            conditions.push('subnet = $' + (params.length + 1));
+            params.push(subnet);
+        }
+        
+        if (search) {
+            conditions.push('(hash ILIKE $' + (params.length + 1) + 
+                         ' OR from_address ILIKE $' + (params.length + 1) + 
+                         ' OR to_address ILIKE $' + (params.length + 1) + ')');
+            params.push(`%${search}%`);
+        }
+        
+        if (conditions.length > 0) {
+            query += ' WHERE ' + conditions.join(' AND ');
+        }
+        
+        query += ' ORDER BY created_at DESC LIMIT 100';
+        
+        const result = await db.query(query, params);
+        res.json(result.rows || []);
     } catch (error) {
         console.error('Error fetching transactions:', error);
         res.status(500).json({ 
             error: 'Internal server error',
-            transactions: [] // Retourne un tableau vide en cas d'erreur
+            transactions: []
         });
     }
 });

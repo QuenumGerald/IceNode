@@ -60,6 +60,7 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedSubnet, setSelectedSubnet] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
 
   const loadStats = useCallback(async () => {
     try {
@@ -77,6 +78,7 @@ export default function Home() {
       setError(null);
       const params = new URLSearchParams();
       if (selectedSubnet) params.append('subnet', selectedSubnet);
+      if (searchQuery) params.append('search', searchQuery);
       
       const response = await axios.get(`${API_URL}/transactions?${params.toString()}`);
       setTransactions(response.data || []);
@@ -86,7 +88,7 @@ export default function Home() {
     } finally {
       setLoading(false);
     }
-  }, [selectedSubnet]);
+  }, [selectedSubnet, searchQuery]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -184,18 +186,27 @@ export default function Home() {
 
       {/* Transactions Récentes */}
       <div className="bg-white shadow rounded-lg overflow-hidden">
-        <div className="px-4 py-5 sm:px-6 flex justify-between items-center">
+        <div className="px-4 py-5 sm:px-6 flex flex-col sm:flex-row justify-between items-center space-y-4 sm:space-y-0">
           <h2 className="text-lg font-medium leading-6 text-gray-900">Transactions Récentes</h2>
-          <select
-            value={selectedSubnet}
-            onChange={(e) => setSelectedSubnet(e.target.value)}
-            className="rounded-md border-gray-300 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
-          >
-            <option value="">Tous les Subnets</option>
-            {Object.entries(SUBNETS).map(([value, label]) => (
-              <option key={value} value={value}>{label}</option>
-            ))}
-          </select>
+          <div className="flex flex-col sm:flex-row space-y-4 sm:space-y-0 sm:space-x-4 w-full sm:w-auto">
+            <input
+              type="text"
+              placeholder="Rechercher une adresse ou un hash..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="rounded-md border-gray-300 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50 w-full sm:w-96"
+            />
+            <select
+              value={selectedSubnet}
+              onChange={(e) => setSelectedSubnet(e.target.value)}
+              className="rounded-md border-gray-300 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
+            >
+              <option value="">Tous les Subnets</option>
+              {Object.entries(SUBNETS).map(([value, label]) => (
+                <option key={value} value={value}>{label}</option>
+              ))}
+            </select>
+          </div>
         </div>
         <div className="border-t border-gray-200">
           <div className="overflow-x-auto">
