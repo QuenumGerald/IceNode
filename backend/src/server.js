@@ -1,10 +1,13 @@
 const express = require('express');
+const path = require('path');
 const db = require('./database');
 const cors = require('cors');
+require('dotenv').config({ path: path.join(__dirname, '../.env') });
 
 const app = express();
-const PORT = 3001;
+const PORT = process.env.PORT || 3001;
 
+// Middlewares
 app.use(cors());
 app.use(express.json());
 

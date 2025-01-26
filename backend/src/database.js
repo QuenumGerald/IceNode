@@ -1,10 +1,10 @@
 const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
 const fs = require('fs');
-require('dotenv').config();
+require('dotenv').config({ path: path.join(__dirname, '../.env') });
 
 // Configuration
-const DB_PATH = process.env.DB_PATH || path.join(__dirname, 'data', 'icenode.db');
+const DB_PATH = process.env.DB_PATH || path.join(__dirname, '../data/icenode.db');
 const DB_DIR = path.dirname(DB_PATH);
 
 // S'assurer que le dossier data existe
