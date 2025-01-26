@@ -6,6 +6,8 @@ require('dotenv').config({ path: path.join(__dirname, '../.env') });
 // Configuration
 const DB_PATH = process.env.DB_PATH || path.join(__dirname, '../data/icenode.db');
 const DB_DIR = path.dirname(DB_PATH);
+const MAX_RETRIES = 5;
+const RETRY_DELAY = 2000; // 2 secondes
 
 // S'assurer que le dossier data existe
 if (!fs.existsSync(DB_DIR)) {
@@ -17,30 +19,57 @@ console.log('Using database:', DB_PATH);
 
 // Créer la connexion à la base de données
 let db = null;
+let connectionAttempts = 0;
 
-function connectToDatabase() {
-    return new Promise((resolve, reject) => {
+async function sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+async function connectToDatabase(retry = true) {
+    return new Promise(async (resolve, reject) => {
         if (db) {
             console.log('Reusing existing database connection');
             return resolve(db);
         }
 
-        console.log('Creating new database connection');
-        db = new sqlite3.Database(DB_PATH, sqlite3.OPEN_READWRITE | sqlite3.OPEN_CREATE, (err) => {
-            if (err) {
-                console.error('Error connecting to database:', err);
-                reject(err);
-            } else {
-                console.log('Connected to database');
-                resolve(db);
-            }
-        });
+        const attemptConnection = () => {
+            console.log(`Creating new database connection (attempt ${connectionAttempts + 1}/${MAX_RETRIES})`);
+            db = new sqlite3.Database(DB_PATH, sqlite3.OPEN_READWRITE | sqlite3.OPEN_CREATE, async (err) => {
+                if (err) {
+                    console.error('Error connecting to database:', err);
+                    connectionAttempts++;
+                    
+                    if (retry && connectionAttempts < MAX_RETRIES) {
+                        console.log(`Retrying in ${RETRY_DELAY}ms...`);
+                        await sleep(RETRY_DELAY);
+                        attemptConnection();
+                    } else {
+                        db = null;
+                        connectionAttempts = 0;
+                        reject(err);
+                    }
+                } else {
+                    console.log('Connected to database successfully');
+                    connectionAttempts = 0;
+                    
+                    // Handle database errors
+                    db.on('error', async (err) => {
+                        console.error('Database error:', err);
+                        db = null;
+                        // Try to reconnect on error
+                        try {
+                            await connectToDatabase();
+                        } catch (reconnectErr) {
+                            console.error('Failed to reconnect:', reconnectErr);
+                        }
+                    });
+                    
+                    resolve(db);
+                }
+            });
+        };
 
-        // Handle database errors
-        db.on('error', (err) => {
-            console.error('Database error:', err);
-            db = null; // Reset connection on error
-        });
+        attemptConnection();
     });
 }
 
@@ -50,10 +79,10 @@ async function initDatabase() {
         await connectToDatabase();
         
         // Enable foreign keys
-        await asyncRun('PRAGMA foreign_keys = ON');
+        await asyncRunWithRetry('PRAGMA foreign_keys = ON');
         
         // Create tables if they don't exist
-        await asyncRun(`
+        await asyncRunWithRetry(`
             CREATE TABLE IF NOT EXISTS transactions (
                 hash TEXT PRIMARY KEY,
                 blockNumber INTEGER,
@@ -65,6 +94,11 @@ async function initDatabase() {
             )
         `);
         
+        // Add indexes for better performance
+        await asyncRunWithRetry('CREATE INDEX IF NOT EXISTS idx_transactions_timestamp ON transactions(timestamp DESC)');
+        await asyncRunWithRetry('CREATE INDEX IF NOT EXISTS idx_transactions_from ON transactions("from")');
+        await asyncRunWithRetry('CREATE INDEX IF NOT EXISTS idx_transactions_to ON transactions("to")');
+        
         console.log('Database initialized successfully');
     } catch (err) {
         console.error('Error initializing database:', err);
@@ -72,7 +106,47 @@ async function initDatabase() {
     }
 }
 
-// Promisify database functions
+// Promisify database functions with retry
+async function asyncRunWithRetry(sql, params = [], retries = 3) {
+    for (let i = 0; i < retries; i++) {
+        try {
+            await connectToDatabase();
+            return await asyncRun(sql, params);
+        } catch (err) {
+            if (i === retries - 1) throw err;
+            console.error(`Error in asyncRunWithRetry (attempt ${i + 1}/${retries}):`, err);
+            await sleep(RETRY_DELAY);
+        }
+    }
+}
+
+async function asyncAllWithRetry(sql, params = [], retries = 3) {
+    for (let i = 0; i < retries; i++) {
+        try {
+            await connectToDatabase();
+            return await asyncAll(sql, params);
+        } catch (err) {
+            if (i === retries - 1) throw err;
+            console.error(`Error in asyncAllWithRetry (attempt ${i + 1}/${retries}):`, err);
+            await sleep(RETRY_DELAY);
+        }
+    }
+}
+
+async function asyncGetWithRetry(sql, params = [], retries = 3) {
+    for (let i = 0; i < retries; i++) {
+        try {
+            await connectToDatabase();
+            return await asyncGet(sql, params);
+        } catch (err) {
+            if (i === retries - 1) throw err;
+            console.error(`Error in asyncGetWithRetry (attempt ${i + 1}/${retries}):`, err);
+            await sleep(RETRY_DELAY);
+        }
+    }
+}
+
+// Base database functions
 function asyncRun(sql, params = []) {
     return new Promise((resolve, reject) => {
         if (!db) {
@@ -120,7 +194,7 @@ module.exports = {
     db: () => db,
     connectToDatabase,
     initDatabase,
-    asyncRun,
-    asyncAll,
-    asyncGet
+    asyncRun: asyncRunWithRetry,
+    asyncAll: asyncAllWithRetry,
+    asyncGet: asyncGetWithRetry
 };
