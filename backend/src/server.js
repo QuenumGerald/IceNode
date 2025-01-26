@@ -414,6 +414,11 @@ app.get('/api/health', (req, res) => {
     res.status(200).json({ status: 'ok', timestamp: Date.now() });
 });
 
+// Health check endpoint
+app.get('/health', (req, res) => {
+    res.status(200).json({ status: 'healthy', timestamp: Date.now() });
+});
+
 app.listen(PORT, () => {
     console.log(`Server running on http://localhost:${PORT}`);
 });
