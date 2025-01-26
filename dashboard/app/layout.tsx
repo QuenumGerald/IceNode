@@ -1,9 +1,12 @@
+import type { Metadata } from 'next'
+import { Inter } from 'next/font/google'
 import './globals.css'
-import Link from 'next/link'
 
-export const metadata = {
-  title: 'IceNode',
-  description: 'Avalanche blockchain explorer and indexer',
+const inter = Inter({ subsets: ['latin'] })
+
+export const metadata: Metadata = {
+  title: 'IceNode Dashboard',
+  description: 'Avalanche Transaction Explorer',
 }
 
 export default function RootLayout({
@@ -13,7 +16,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className="bg-gray-100">
+      <body className={inter.className}>
         <nav className="bg-white shadow-lg">
           <div className="max-w-7xl mx-auto px-4">
             <div className="flex justify-between items-center py-4">
