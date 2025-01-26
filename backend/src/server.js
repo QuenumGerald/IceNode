@@ -8,42 +8,114 @@ const app = express();
 const PORT = process.env.PORT || 3001;
 
 // Middlewares
-app.use(cors());
+app.use(cors({
+    origin: '*',
+    methods: ['GET', 'POST', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization']
+}));
 app.use(express.json());
 
 // Middleware pour la gestion des erreurs de base de données
 const handleDbError = (err, res) => {
     console.error('Database error:', err);
     res.status(500).json({ 
-        error: err.message,
+        error: err.message || 'Database error occurred',
         code: err.code || 'UNKNOWN_ERROR'
     });
 };
 
-// Transactions routes
-app.get('/transactions', (req, res) => {
-    console.log('GET /transactions', req.query);
-    db.all('SELECT * FROM transactions ORDER BY timestamp DESC LIMIT 10', [], (err, rows) => {
+// Health check endpoint
+app.get('/health', (req, res) => {
+    db.get('SELECT 1', [], (err) => {
         if (err) {
-            console.error('Error in /transactions:', err);
-            handleDbError(err, res);
+            console.error('Health check failed:', err);
+            res.status(500).json({ status: 'error', message: 'Database connection failed' });
         } else {
-            console.log(`Found ${rows?.length || 0} transactions`);
-            res.json(rows || []);
+            res.json({ status: 'healthy', timestamp: new Date().toISOString() });
         }
     });
 });
 
-app.get('/transactions/:subnet', (req, res) => {
-    console.log('GET /transactions/:subnet', req.params);
-    const { subnet } = req.params;
-    db.all('SELECT * FROM transactions WHERE subnet = ? ORDER BY timestamp DESC LIMIT 10', [subnet], (err, rows) => {
+// Transactions routes
+app.get('/transactions', (req, res) => {
+    console.log('GET /transactions - Start');
+    
+    // Vérifier la connexion à la base de données
+    if (!db) {
+        console.error('Database connection not available');
+        return res.status(500).json({ 
+            error: 'Database connection not available',
+            code: 'DB_CONNECTION_ERROR'
+        });
+    }
+
+    const query = `
+        SELECT 
+            hash,
+            blockNumber,
+            "from" as from_address,
+            "to" as to_address,
+            value,
+            timestamp,
+            subnet
+        FROM transactions 
+        ORDER BY timestamp DESC 
+        LIMIT 10
+    `;
+
+    db.all(query, [], (err, rows) => {
         if (err) {
-            console.error('Error in /transactions/:subnet:', err);
+            console.error('Error fetching transactions:', err);
             handleDbError(err, res);
         } else {
             console.log(`Found ${rows?.length || 0} transactions`);
-            res.json(rows || []);
+            const formattedRows = (rows || []).map(row => ({
+                hash: row.hash,
+                blockNumber: row.blockNumber,
+                from: row.from_address,
+                to: row.to_address,
+                value: row.value,
+                timestamp: row.timestamp
+            }));
+            res.json(formattedRows);
+        }
+    });
+});
+
+// Transactions routes
+app.get('/transactions/:subnet', (req, res) => {
+    console.log('GET /transactions/:subnet', req.params);
+    const { subnet } = req.params;
+    const query = `
+        SELECT 
+            hash,
+            blockNumber,
+            "from" as from_address,
+            "to" as to_address,
+            value,
+            timestamp,
+            subnet
+        FROM transactions 
+        WHERE subnet = ? 
+        ORDER BY timestamp DESC 
+        LIMIT 10
+    `;
+
+    db.all(query, [subnet], (err, rows) => {
+        if (err) {
+            console.error('Error fetching transactions:', err);
+            handleDbError(err, res);
+        } else {
+            console.log(`Found ${rows?.length || 0} transactions`);
+            const formattedRows = (rows || []).map(row => ({
+                hash: row.hash,
+                blockNumber: row.blockNumber,
+                from: row.from_address,
+                to: row.to_address,
+                value: row.value,
+                timestamp: row.timestamp
+            }));
+            res.json(formattedRows);
         }
     });
 });
@@ -51,13 +123,32 @@ app.get('/transactions/:subnet', (req, res) => {
 // Token routes
 app.get('/tokens', (req, res) => {
     console.log('GET /tokens');
-    db.all('SELECT * FROM tokens', [], (err, rows) => {
+    const query = `
+        SELECT 
+            address,
+            symbol,
+            name,
+            totalSupply,
+            decimals,
+            created_at
+        FROM tokens 
+    `;
+
+    db.all(query, [], (err, rows) => {
         if (err) {
-            console.error('Error in /tokens:', err);
+            console.error('Error fetching tokens:', err);
             handleDbError(err, res);
         } else {
             console.log(`Found ${rows?.length || 0} tokens`);
-            res.json(rows || []);
+            const formattedRows = (rows || []).map(row => ({
+                address: row.address,
+                symbol: row.symbol,
+                name: row.name,
+                totalSupply: row.totalSupply,
+                decimals: row.decimals,
+                createdAt: row.created_at
+            }));
+            res.json(formattedRows);
         }
     });
 });
@@ -65,13 +156,33 @@ app.get('/tokens', (req, res) => {
 app.get('/tokens/:address', (req, res) => {
     console.log('GET /tokens/:address', req.params);
     const { address } = req.params;
-    db.get('SELECT * FROM tokens WHERE address = ?', [address], (err, row) => {
+    const query = `
+        SELECT 
+            address,
+            symbol,
+            name,
+            totalSupply,
+            decimals,
+            created_at
+        FROM tokens 
+        WHERE address = ?
+    `;
+
+    db.get(query, [address], (err, row) => {
         if (err) {
-            console.error('Error in /tokens/:address:', err);
+            console.error('Error fetching token:', err);
             handleDbError(err, res);
         } else {
             console.log(`Found token: ${row}`);
-            res.json(row || {});
+            const formattedRow = {
+                address: row.address,
+                symbol: row.symbol,
+                name: row.name,
+                totalSupply: row.totalSupply,
+                decimals: row.decimals,
+                createdAt: row.created_at
+            };
+            res.json(formattedRow || {});
         }
     });
 });
@@ -80,65 +191,110 @@ app.get('/tokens/:address', (req, res) => {
 app.get('/contract-calls', (req, res) => {
     console.log('GET /contract-calls', req.query);
     const limit = parseInt(req.query.limit) || 10;
-    db.all(`
-        SELECT * FROM smart_contract_calls 
+    const query = `
+        SELECT 
+            id,
+            contract_address,
+            function_name,
+            input_data,
+            output_data,
+            timestamp
+        FROM smart_contract_calls 
         ORDER BY timestamp DESC 
-        LIMIT ?`, 
-        [limit], 
-        (err, rows) => {
-            if (err) {
-                console.error('Error in /contract-calls:', err);
-                handleDbError(err, res);
-            } else {
-                console.log(`Found ${rows?.length || 0} contract calls`);
-                res.json(rows || []);
-            }
+        LIMIT ?
+    `;
+
+    db.all(query, [limit], (err, rows) => {
+        if (err) {
+            console.error('Error fetching contract calls:', err);
+            handleDbError(err, res);
+        } else {
+            console.log(`Found ${rows?.length || 0} contract calls`);
+            const formattedRows = (rows || []).map(row => ({
+                id: row.id,
+                contractAddress: row.contract_address,
+                functionName: row.function_name,
+                inputData: row.input_data,
+                outputData: row.output_data,
+                timestamp: row.timestamp
+            }));
+            res.json(formattedRows);
         }
-    );
+    });
 });
 
 app.get('/contract-calls/:contract', (req, res) => {
     console.log('GET /contract-calls/:contract', req.params);
     const { contract } = req.params;
     const limit = parseInt(req.query.limit) || 10;
-    db.all(`
-        SELECT * FROM smart_contract_calls 
+    const query = `
+        SELECT 
+            id,
+            contract_address,
+            function_name,
+            input_data,
+            output_data,
+            timestamp
+        FROM smart_contract_calls 
         WHERE contract_address = ? 
         ORDER BY timestamp DESC 
-        LIMIT ?`,
-        [contract, limit],
-        (err, rows) => {
-            if (err) {
-                console.error('Error in /contract-calls/:contract:', err);
-                handleDbError(err, res);
-            } else {
-                console.log(`Found ${rows?.length || 0} contract calls`);
-                res.json(rows || []);
-            }
+        LIMIT ?
+    `;
+
+    db.all(query, [contract, limit], (err, rows) => {
+        if (err) {
+            console.error('Error fetching contract calls:', err);
+            handleDbError(err, res);
+        } else {
+            console.log(`Found ${rows?.length || 0} contract calls`);
+            const formattedRows = (rows || []).map(row => ({
+                id: row.id,
+                contractAddress: row.contract_address,
+                functionName: row.function_name,
+                inputData: row.input_data,
+                outputData: row.output_data,
+                timestamp: row.timestamp
+            }));
+            res.json(formattedRows);
         }
-    );
+    });
 });
 
 app.get('/contract-calls/function/:name', (req, res) => {
     console.log('GET /contract-calls/function/:name', req.params);
     const { name } = req.params;
     const limit = parseInt(req.query.limit) || 10;
-    db.all(`
-        SELECT * FROM smart_contract_calls 
+    const query = `
+        SELECT 
+            id,
+            contract_address,
+            function_name,
+            input_data,
+            output_data,
+            timestamp
+        FROM smart_contract_calls 
         WHERE function_name = ? 
         ORDER BY timestamp DESC 
-        LIMIT ?`,
-        [name, limit],
-        (err, rows) => {
-            if (err) {
-                console.error('Error in /contract-calls/function/:name:', err);
-                handleDbError(err, res);
-            } else {
-                console.log(`Found ${rows?.length || 0} contract calls`);
-                res.json(rows || []);
-            }
+        LIMIT ?
+    `;
+
+    db.all(query, [name, limit], (err, rows) => {
+        if (err) {
+            console.error('Error fetching contract calls:', err);
+            handleDbError(err, res);
+        } else {
+            console.log(`Found ${rows?.length || 0} contract calls`);
+            const formattedRows = (rows || []).map(row => ({
+                id: row.id,
+                contractAddress: row.contract_address,
+                functionName: row.function_name,
+                inputData: row.input_data,
+                outputData: row.output_data,
+                timestamp: row.timestamp
+            }));
+            res.json(formattedRows);
         }
-    );
+    });
 });
 
 // Stats routes
@@ -412,11 +568,6 @@ app.get('/tokens', (req, res) => {
 // Health check pour Railway
 app.get('/api/health', (req, res) => {
     res.status(200).json({ status: 'ok', timestamp: Date.now() });
-});
-
-// Health check endpoint
-app.get('/health', (req, res) => {
-    res.status(200).json({ status: 'healthy', timestamp: Date.now() });
 });
 
 app.listen(PORT, () => {
