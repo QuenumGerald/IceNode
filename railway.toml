@@ -24,3 +24,21 @@ healthcheckPath = "/"
 port = 8080
 [[services.env]]
 NEXT_PUBLIC_API_URL = "https://icenode-production.up.railway.app"
+
+[[services]]
+name = "indexer"
+buildCommand = "cd backend && npm install"
+startCommand = "cd backend && node src/indexer.js"
+restartPolicyType = "on_failure"
+[[services.env]]
+RPC_URL = "https://api.avax.network/ext/bc/C/rpc"
+SUBNET_RPC_URLS = '{"DFK":"https://subnets.avax.network/defi-kingdoms/dfk-chain/rpc","Swimmer":"https://subnets.avax.network/swimmer/mainnet/rpc","Dexalot":"https://subnets.avax.network/dexalot/mainnet/rpc"}'
+
+[[services]]
+name = "event-indexer"
+buildCommand = "cd backend && npm install"
+startCommand = "cd backend && node src/eventIndexer.js"
+restartPolicyType = "on_failure"
+[[services.env]]
+RPC_URL = "https://api.avax.network/ext/bc/C/rpc"
+SUBNET_RPC_URLS = '{"DFK":"https://subnets.avax.network/defi-kingdoms/dfk-chain/rpc","Swimmer":"https://subnets.avax.network/swimmer/mainnet/rpc","Dexalot":"https://subnets.avax.network/dexalot/mainnet/rpc"}'
