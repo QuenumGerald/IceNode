@@ -1,11 +1,9 @@
 const { Pool } = require('pg');
 
-// Configuration du pool avec l'URL de connexion complète
+// Configuration du pool avec l'URL interne Railway
 const pool = new Pool({
-    connectionString: 'postgres://postgres:egmMpvjpbAXVIZTAlWsGSSsWcVSQPgtE@viaduct.proxy.rlwy.net:42069/railway',
-    ssl: {
-        rejectUnauthorized: false
-    }
+    connectionString: 'postgresql://postgres:egmMpvjpbAXVIZTAlWsGSSsWcVSQPgtE@postgres.railway.internal:5432/railway',
+    ssl: false
 });
 
 // Fonction pour attendre avec un délai
