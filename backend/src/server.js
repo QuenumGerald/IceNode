@@ -7,12 +7,17 @@ require('dotenv').config({ path: path.join(__dirname, '../.env') });
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-// Configuration CORS
-app.use(cors({
-    origin: ['https://ice-front-production.up.railway.app', 'http://localhost:3000'],
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization']
-}));
+// Configuration CORS plus permissive
+app.use(cors());
+
+// Ajout des headers CORS manuellement pour plus de sécurité
+app.use((req, res, next) => {
+    res.header('Access-Control-Allow-Origin', '*');
+    res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+    res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+    res.header('Access-Control-Allow-Credentials', true);
+    next();
+});
 
 // Error handling middleware
 const errorHandler = (err, req, res, next) => {

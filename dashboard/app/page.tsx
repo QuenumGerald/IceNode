@@ -32,10 +32,18 @@ export default function Home() {
 
   const loadStats = useCallback(async () => {
     try {
-      const response = await axios.get(`${API_URL}/stats`);
+      const response = await axios.get(`${API_URL}/stats`, {
+        timeout: 5000,
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json'
+        }
+      });
       setStats(response.data);
     } catch (err) {
       console.error('Error fetching stats:', err);
+      setError('Failed to load statistics. Please try again later.');
+      setStats(prev => prev);
     }
   }, []);
 
@@ -46,11 +54,18 @@ export default function Home() {
       const params = new URLSearchParams();
       if (selectedSubnet) params.append('subnet', selectedSubnet);
       
-      const response = await axios.get(`${API_URL}/transactions?${params.toString()}`);
+      const response = await axios.get(`${API_URL}/transactions?${params.toString()}`, {
+        timeout: 5000,
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json'
+        }
+      });
       setTransactions(response.data);
     } catch (err) {
       console.error('Error fetching transactions:', err);
       setError('Failed to load transactions. Please try again later.');
+      setTransactions(prev => prev);
     } finally {
       setLoading(false);
     }
