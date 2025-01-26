@@ -1,7 +1,5 @@
-require('dotenv').config();
 const axios = require('axios');
 const { getDb } = require('./db');
-const ethers = require('ethers');
 
 // Configuration en dur
 const RPC_URLS = {
@@ -10,15 +8,6 @@ const RPC_URLS = {
     'swimmer': 'https://subnets.avax.network/swimmer/mainnet/rpc',
     'dexalot': 'https://subnets.avax.network/dexalot/mainnet/rpc'
 };
-
-console.log('Starting indexer with configuration:');
-console.log('RPC_URLS:', RPC_URLS);
-
-// Fonction pour convertir les valeurs hex en nombres
-function hexToNumber(hex) {
-    if (!hex) return 0;
-    return parseInt(hex, 16);
-}
 
 async function fetchBlockTransactions(rpcUrl, subnet) {
     try {
@@ -148,5 +137,6 @@ async function startIndexing() {
     }
 }
 
-console.log('Starting indexer...');
-startIndexing().catch(console.error);
+module.exports = {
+    startIndexing
+};
