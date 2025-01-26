@@ -23,7 +23,7 @@ export default function RootLayout({
                     ICE<span className="text-blue-600">NODE</span>
                   </h1>
                 </div>
-                <span className="text-sm text-gray-500">Avalanche Blockchain Explorer</span>
+                <span className="text-sm text-gray-500"></span>
               </div>
               {/* Navigation */}
               <div className="flex space-x-4">
