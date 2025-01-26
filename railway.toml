@@ -17,7 +17,7 @@ port = 3001
 
 [[services]]
 name = "dashboard"
-buildCommand = "cd dashboard && npm install && npm run build"
+buildCommand = "cd dashboard && rm -rf node_modules && npm install && npm run build"
 startCommand = "cd dashboard && npm start"
 healthcheckPath = "/"
 port = 3000
