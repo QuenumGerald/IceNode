@@ -7,6 +7,8 @@ const wait = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 // Nettoyage périodique de la base de données
 async function cleanDatabase() {
+    if (!pool) return;
+    
     try {
         const client = await pool.connect();
         try {
@@ -65,6 +67,12 @@ async function initDb() {
             ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
         });
 
+        // Configuration du gestionnaire d'erreurs du pool
+        pool.on('error', (err) => {
+            console.error(`[${new Date().toISOString()}] Erreur inattendue du pool PostgreSQL:`, err);
+            process.exit(-1);
+        });
+
         const client = await connectWithRetry();
         try {
             // Création de la table transactions avec les nouveaux champs
@@ -117,12 +125,6 @@ function getDb() {
     }
     return pool;
 }
-
-// Gestion des erreurs du pool
-pool.on('error', (err) => {
-    console.error(`[${new Date().toISOString()}] Erreur inattendue du pool PostgreSQL:`, err);
-    process.exit(-1);
-});
 
 module.exports = {
     initDb,

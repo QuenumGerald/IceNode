@@ -61,7 +61,7 @@ app.get('/transactions', async (req, res) => {
         const result = await db.query(query, params);
         res.json(result.rows || []);
     } catch (error) {
-        console.error('Error fetching transactions:', error);
+        console.error(`[${new Date().toISOString()}] Error fetching transactions:`, error);
         res.status(500).json({ 
             error: 'Internal server error',
             transactions: []
@@ -69,13 +69,13 @@ app.get('/transactions', async (req, res) => {
     }
 });
 
-// Route pour les statistiques détaillées
+// Route pour les statistiques
 app.get('/stats', async (req, res) => {
     try {
         const db = await getDb();
         
-        // 1. Nombre de transactions par subnet
-        const transactionCountQuery = `
+        // Requêtes pour les statistiques
+        const statsQuery = `
             SELECT 
                 subnet,
                 COUNT(*) as transaction_count,
@@ -89,60 +89,49 @@ app.get('/stats', async (req, res) => {
             GROUP BY subnet
         `;
         
-        // 2. Top 5 des adresses par volume
         const topAddressesQuery = `
-            WITH address_volumes AS (
-                SELECT 
-                    from_address as address,
-                    subnet,
-                    SUM(CAST(value AS NUMERIC)) as volume
-                FROM transactions
-                GROUP BY from_address, subnet
-            )
             SELECT 
-                address,
+                CASE 
+                    WHEN from_address IS NOT NULL THEN from_address 
+                    ELSE to_address 
+                END as address,
                 subnet,
-                volume::text
-            FROM address_volumes
-            ORDER BY volume DESC
+                SUM(CAST(value AS NUMERIC)) as volume
+            FROM transactions 
+            GROUP BY 
+                CASE 
+                    WHEN from_address IS NOT NULL THEN from_address 
+                    ELSE to_address 
+                END,
+                subnet
+            ORDER BY volume DESC 
             LIMIT 5
         `;
-
-        // 3. Activité par période
+        
         const activityQuery = `
             SELECT 
                 subnet,
                 date_trunc('hour', created_at) as period,
                 COUNT(*) as tx_count
-            FROM transactions
-            WHERE created_at >= NOW() - INTERVAL '24 hours'
+            FROM transactions 
             GROUP BY subnet, period
-            ORDER BY period DESC
+            ORDER BY period DESC 
+            LIMIT 24
         `;
-
-        // Exécution des requêtes en parallèle
-        const [transactionStats, topAddresses, activity] = await Promise.all([
-            db.query(transactionCountQuery),
+        
+        const [stats, topAddresses, activity] = await Promise.all([
+            db.query(statsQuery),
             db.query(topAddressesQuery),
             db.query(activityQuery)
         ]);
-
-        // Convertir les valeurs numériques en chaînes pour éviter les problèmes de précision
-        const stats = transactionStats.rows.map(stat => ({
-            ...stat,
-            total_volume: stat.total_volume.toString(),
-            average_value: stat.average_value.toString(),
-            max_value: stat.max_value.toString(),
-            min_value: stat.min_value.toString()
-        }));
-
+        
         res.json({
-            stats,
-            topAddresses: topAddresses.rows || [],
-            activity: activity.rows || []
+            stats: stats.rows,
+            topAddresses: topAddresses.rows,
+            activity: activity.rows
         });
     } catch (error) {
-        console.error('Error fetching stats:', error);
+        console.error(`[${new Date().toISOString()}] Error fetching stats:`, error);
         res.status(500).json({ 
             error: 'Internal server error',
             stats: [],
@@ -168,43 +157,56 @@ async function start() {
 
     while (retries > 0) {
         try {
-            console.log(`Démarrage de l'application (tentative ${6 - retries}/5)...`);
+            console.log(`[${new Date().toISOString()}] Démarrage de l'application (tentative ${6 - retries}/5)...`);
             
             // Initialiser la base de données
             await initDb();
+            console.log(`[${new Date().toISOString()}] Base de données initialisée avec succès`);
             
             // Démarrer le serveur sur le port défini par Railway ou 3000 par défaut
             const port = process.env.PORT || 3000;
             app.listen(port, '0.0.0.0', () => {
-                console.log(`Serveur démarré sur le port ${port}`);
+                console.log(`[${new Date().toISOString()}] Serveur démarré sur le port ${port}`);
             });
 
             // Démarrer l'indexeur
-            startIndexing().catch(error => {
-                console.error('Erreur de l\'indexeur:', error);
+            await startIndexing().catch(error => {
+                console.error(`[${new Date().toISOString()}] Erreur de l'indexeur:`, error);
             });
 
             // Si on arrive ici, tout s'est bien passé
-            console.log('Application démarrée avec succès !');
+            console.log(`[${new Date().toISOString()}] Application démarrée avec succès !`);
             return;
 
         } catch (error) {
-            console.error(`Erreur au démarrage (tentative ${6 - retries}/5):`, error);
+            console.error(`[${new Date().toISOString()}] Erreur au démarrage (tentative ${6 - retries}/5):`, error);
             lastError = error;
             retries--;
 
             if (retries > 0) {
                 const delay = Math.min(1000 * Math.pow(2, 5 - retries), 10000);
-                console.log(`Nouvelle tentative dans ${delay/1000} secondes...`);
+                console.log(`[${new Date().toISOString()}] Nouvelle tentative dans ${delay/1000} secondes...`);
                 await new Promise(resolve => setTimeout(resolve, delay));
             }
         }
     }
 
     // Si on arrive ici, toutes les tentatives ont échoué
-    console.error('Impossible de démarrer l\'application après 5 tentatives');
-    console.error('Dernière erreur:', lastError);
+    console.error(`[${new Date().toISOString()}] Impossible de démarrer l'application après 5 tentatives`);
+    console.error(`[${new Date().toISOString()}] Dernière erreur:`, lastError);
     process.exit(1);
 }
 
+// Gestion des erreurs non capturées
+process.on('uncaughtException', (error) => {
+    console.error(`[${new Date().toISOString()}] Erreur non capturée:`, error);
+    process.exit(1);
+});
+
+process.on('unhandledRejection', (error) => {
+    console.error(`[${new Date().toISOString()}] Promesse rejetée non gérée:`, error);
+    process.exit(1);
+});
+
+// Démarrage de l'application
 start();
