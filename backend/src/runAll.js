@@ -90,7 +90,7 @@ async function startAll() {
 
         // Démarrer le serveur backend
         console.log('Starting backend server...');
-        startProcess(path.join(__dirname, 'server.js'), [], 'Server');
+        startProcess(path.join(__dirname, 'server.js'), ['--port', '3000'], 'Server');
 
         // Démarrer les indexers
         console.log('Starting indexers...');
