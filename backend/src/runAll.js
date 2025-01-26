@@ -57,10 +57,10 @@ app.get('/stats', async (req, res) => {
                 COUNT(*) as transaction_count,
                 COUNT(DISTINCT from_address) as unique_senders,
                 COUNT(DISTINCT to_address) as unique_receivers,
-                SUM(CAST(value AS DECIMAL)) as total_volume,
-                AVG(CAST(value AS DECIMAL)) as average_value,
-                MAX(CAST(value AS DECIMAL)) as max_value,
-                MIN(CAST(value AS DECIMAL)) as min_value
+                SUM(CAST(value AS NUMERIC)) as total_volume,
+                AVG(CAST(value AS NUMERIC)) as average_value,
+                MAX(CAST(value AS NUMERIC)) as max_value,
+                MIN(CAST(value AS NUMERIC)) as min_value
             FROM transactions 
             GROUP BY subnet
         `;
@@ -71,14 +71,14 @@ app.get('/stats', async (req, res) => {
                 SELECT 
                     from_address as address,
                     subnet,
-                    SUM(CAST(value AS DECIMAL)) as volume
+                    SUM(CAST(value AS NUMERIC)) as volume
                 FROM transactions
                 GROUP BY from_address, subnet
             )
             SELECT 
                 address,
                 subnet,
-                volume
+                volume::text
             FROM address_volumes
             ORDER BY volume DESC
             LIMIT 5
@@ -103,8 +103,17 @@ app.get('/stats', async (req, res) => {
             db.query(activityQuery)
         ]);
 
+        // Convertir les valeurs numériques en chaînes pour éviter les problèmes de précision
+        const stats = transactionStats.rows.map(stat => ({
+            ...stat,
+            total_volume: stat.total_volume.toString(),
+            average_value: stat.average_value.toString(),
+            max_value: stat.max_value.toString(),
+            min_value: stat.min_value.toString()
+        }));
+
         res.json({
-            stats: transactionStats.rows || [],
+            stats,
             topAddresses: topAddresses.rows || [],
             activity: activity.rows || []
         });

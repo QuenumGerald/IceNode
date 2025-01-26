@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
+import { ethers } from 'ethers';
 
 const API_URL = 'https://icenode-production.up.railway.app';
 
@@ -10,6 +11,19 @@ const SUBNETS = {
   'dfk': 'DFK Chain',
   'swimmer': 'Swimmer Network',
   'dexalot': 'Dexalot'
+};
+
+// Fonction pour convertir les Wei en AVAX
+const formatAvax = (value: string) => {
+  try {
+    return parseFloat(ethers.formatEther(value)).toLocaleString(undefined, {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 6
+    });
+  } catch (err) {
+    console.error('Error formatting AVAX value:', err);
+    return '0.00';
+  }
 };
 
 interface Transaction {
@@ -26,16 +40,16 @@ interface SubnetStats {
   transaction_count: number;
   unique_senders: number;
   unique_receivers: number;
-  total_volume: number;
-  average_value: number;
-  max_value: number;
-  min_value: number;
+  total_volume: string;
+  average_value: string;
+  max_value: string;
+  min_value: string;
 }
 
 interface TopAddress {
   address: string;
   subnet: string;
-  volume: number;
+  volume: string;
 }
 
 interface ActivityPeriod {
@@ -133,7 +147,7 @@ export default function Home() {
                 <p className="text-gray-600">transactions</p>
               </div>
               <div>
-                <p className="text-xl font-semibold">{stat.total_volume.toLocaleString()} AVAX</p>
+                <p className="text-xl font-semibold">{formatAvax(stat.total_volume)} AVAX</p>
                 <p className="text-gray-600">volume total</p>
               </div>
               <div className="grid grid-cols-2 gap-2 text-sm">
@@ -175,7 +189,7 @@ export default function Home() {
                     {SUBNETS[address.subnet as keyof typeof SUBNETS] || address.subnet}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {address.volume.toLocaleString()} AVAX
+                    {formatAvax(address.volume)} AVAX
                   </td>
                 </tr>
               ))}
@@ -240,7 +254,7 @@ export default function Home() {
                       </a>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {parseFloat(tx.value).toLocaleString()} AVAX
+                      {formatAvax(tx.value)} AVAX
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {SUBNETS[tx.subnet as keyof typeof SUBNETS] || tx.subnet}
