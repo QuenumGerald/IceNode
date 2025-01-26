@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IceNode - Avalanche Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <style>
+        .logo-container {
+            background: linear-gradient(135deg, #E84142 0%, #1B1B1B 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .ice-effect {
+            position: relative;
+        }
+        .ice-effect::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(45deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0) 100%);
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body class="bg-gray-100">
+    <nav class="bg-white shadow-lg">
+        <div class="max-w-7xl mx-auto px-4">
+            <div class="flex justify-between items-center py-4">
+                <div class="flex items-center space-x-4">
+                    <!-- Logo -->
+                    <div class="logo-container">
+                        <h1 class="text-4xl font-bold ice-effect">
+                            ICE<span class="text-blue-600">NODE</span>
+                        </h1>
+                    </div>
+                    <span class="text-sm text-gray-500">Avalanche Blockchain Explorer</span>
+                </div>
+                <!-- Navigation -->
+                <div class="flex space-x-4">
+                    <a href="#" class="text-gray-700 hover:text-blue-600">Transactions</a>
+                    <a href="#" class="text-gray-700 hover:text-blue-600">Smart Contracts</a>
+                    <a href="#" class="text-gray-700 hover:text-blue-600">Events</a>
+                    <a href="#" class="text-gray-700 hover:text-blue-600">Wallets</a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mx-auto px-4 py-8">
+        <!-- Contenu du dashboard ici -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <!-- Statistiques -->
+            <div class="bg-white rounded-lg shadow p-6">
+                <h3 class="text-lg font-semibold mb-2">Transactions</h3>
+                <p class="text-3xl font-bold text-blue-600" id="txCount">-</p>
+            </div>
+            <div class="bg-white rounded-lg shadow p-6">
+                <h3 class="text-lg font-semibold mb-2">Smart Contracts</h3>
+                <p class="text-3xl font-bold text-blue-600" id="contractCount">-</p>
+            </div>
+            <div class="bg-white rounded-lg shadow p-6">
+                <h3 class="text-lg font-semibold mb-2">Active Wallets</h3>
+                <p class="text-3xl font-bold text-blue-600" id="walletCount">-</p>
+            </div>
+            <div class="bg-white rounded-lg shadow p-6">
+                <h3 class="text-lg font-semibold mb-2">Events</h3>
+                <p class="text-3xl font-bold text-blue-600" id="eventCount">-</p>
+            </div>
+        </div>
+
+        <!-- Dernières transactions -->
+        <div class="mt-8 bg-white rounded-lg shadow">
+            <div class="p-6">
+                <h2 class="text-xl font-semibold mb-4">Latest Transactions</h2>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full table-auto">
+                        <thead>
+                            <tr class="bg-gray-50">
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Hash</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">From</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">To</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Value</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Time</th>
+                            </tr>
+                        </thead>
+                        <tbody id="txTable" class="bg-white divide-y divide-gray-200">
+                            <!-- Les transactions seront insérées ici -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>

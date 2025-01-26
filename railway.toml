@@ -1,0 +1,26 @@
+[build]
+builder = "nixpacks"
+buildCommand = "npm run build"
+
+[deploy]
+startCommand = "npm run prod"
+healthcheckPath = "/api/health"
+healthcheckTimeout = 100
+restartPolicyType = "on_failure"
+
+[deploy.railway]
+name = "icenode"
+
+[[services]]
+name = "api"
+envs = [
+    "NODE_ENV=production",
+    "PORT=3001"
+]
+
+[[services]]
+name = "dashboard"
+envs = [
+    "NODE_ENV=production",
+    "PORT=3000"
+]

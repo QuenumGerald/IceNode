@@ -1,0 +1,74 @@
+# Dependencies
+node_modules/
+backend/node_modules/
+dashboard/node_modules/
+/.pnp
+.pnp.js
+
+# Testing
+/coverage
+/backend/coverage
+/dashboard/coverage
+
+# Next.js
+/dashboard/.next/
+/dashboard/out/
+
+# Production
+/build
+/backend/build
+/dashboard/build
+/dist
+
+# Database
+*.db
+*.db-journal
+backend/data/
+
+# Debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# Local env files
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+backend/.env
+dashboard/.env
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+logs
+*.log
+
+# Cache
+.cache/
+.npm/
+
+# Optional eslint cache
+.eslintcache
+
+# Optional REPL history
+.node_repl_history
+
+# Output of 'npm pack'
+*.tgz
+
+# Yarn Integrity file
+.yarn-integrity
+
+# Vercel
+.vercel

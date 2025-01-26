@@ -1,0 +1,22 @@
+{
+  "name": "@icenode/backend",
+  "version": "1.0.0",
+  "description": "IceNode Backend Services",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/runAll.js",
+    "build": "npm install",
+    "reset": "node src/resetDatabase.js",
+    "prod": "pm2 start ecosystem.config.js"
+  },
+  "dependencies": {
+    "axios": "^1.7.9",
+    "cors": "^2.8.5",
+    "dotenv": "^16.0.3",
+    "ethers": "^5.7.2",
+    "express": "^4.21.2",
+    "sqlite3": "^5.1.7",
+    "chalk": "^4.1.2",
+    "pm2": "^5.3.0"
+  }
+}
