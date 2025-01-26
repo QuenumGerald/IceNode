@@ -2,7 +2,11 @@ const { Pool } = require('pg');
 
 // Configuration du pool avec des timeouts et retries
 const pool = new Pool({
-    connectionString: 'postgresql://postgres:egmMpvjpbAXVIZTAlWsGSSsWcVSQPgtE@monorail.proxy.rlwy.net:42069/railway',
+    user: process.env.PGUSER || 'postgres',
+    password: process.env.PGPASSWORD || 'egmMpvjpbAXVIZTAlWsGSSsWcVSQPgtE',
+    host: process.env.PGHOST || 'monorail.proxy.rlwy.net',
+    port: process.env.PGPORT || 42069,
+    database: process.env.PGDATABASE || 'railway',
     ssl: {
         rejectUnauthorized: false
     },
@@ -19,6 +23,13 @@ async function connectWithRetry(maxRetries = 5) {
     for (let i = 0; i < maxRetries; i++) {
         try {
             console.log(`Tentative de connexion à PostgreSQL (${i + 1}/${maxRetries})...`);
+            console.log('Configuration de connexion:', {
+                host: process.env.PGHOST || 'monorail.proxy.rlwy.net',
+                port: process.env.PGPORT || 42069,
+                database: process.env.PGDATABASE || 'railway',
+                user: process.env.PGUSER || 'postgres'
+            });
+            
             const client = await pool.connect();
             console.log('Connexion à PostgreSQL établie avec succès');
             return client;
