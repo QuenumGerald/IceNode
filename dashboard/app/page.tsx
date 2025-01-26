@@ -1,212 +1,122 @@
 'use client'
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 
-// Changer l'URL de l'API pour utiliser le proxy Next.js
 const API_URL = 'http://localhost:3001';
 
-// Ajouter des logs pour le débogage
-const fetchWithLogs = async (url: string) => {
-  console.log(`Fetching ${url}...`);
-  try {
-    const response = await axios.get(url);
-    console.log(`Response from ${url}:`, response.data);
-    return response;
-  } catch (error) {
-    console.error(`Error fetching ${url}:`, error);
-    throw error;
-  }
-};
+interface Transaction {
+  hash: string;
+  from_address: string;
+  to_address: string;
+  amount: string;
+  timestamp: number;
+  subnet: string;
+}
+
+interface ApiResponse<T> {
+  data: T;
+  error?: string;
+}
 
 export default function Home() {
-  const [transactions, setTransactions] = useState([]);
-  const [stats, setStats] = useState({ transactions: [], volumes: [], contracts: { count: 0 } });
-  const [searchQuery, setSearchQuery] = useState('');
-  const [searchType, setSearchType] = useState('address');
-  const [selectedSubnet, setSelectedSubnet] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Fonction pour formater les adresses
-  const formatAddress = (address: string) => {
+  const loadTransactions = useCallback(async () => {
+    try {
+      const response = await axios.get<ApiResponse<Transaction[]>>(`${API_URL}/transactions`);
+      setTransactions(response.data.data || []);
+      setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Une erreur est survenue');
+      setTransactions([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadTransactions();
+  }, [loadTransactions]);
+
+  const formatDate = (timestamp: number): string => {
+    return new Date(timestamp * 1000).toLocaleString('fr-FR', {
+      dateStyle: 'medium',
+      timeStyle: 'medium'
+    });
+  };
+
+  const formatAmount = (amount: string): string => {
+    const value = parseFloat(amount);
+    if (isNaN(value)) return '0 AVAX';
+    return `${(value / 1e18).toFixed(4)} AVAX`;
+  };
+
+  const shortenAddress = (address: string): string => {
     if (!address) return '';
     return `${address.slice(0, 6)}...${address.slice(-4)}`;
   };
 
-  // Fonction pour formater les timestamps
-  const formatTimestamp = (timestamp: number) => {
-    return new Date(timestamp * 1000).toLocaleString();
-  };
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center min-h-screen">
+        <div className="animate-spin rounded-full h-32 w-32 border-t-2 border-b-2 border-blue-500"></div>
+      </div>
+    );
+  }
 
-  // Charger les statistiques
-  const loadStats = async () => {
-    try {
-      setError(null);
-      const response = await fetchWithLogs(`${API_URL}/stats`);
-      setStats(response.data);
-    } catch (error) {
-      console.error('Error loading stats:', error);
-      setError('Failed to load statistics');
-    }
-  };
-
-  // Charger les transactions
-  const loadTransactions = async () => {
-    try {
-      setError(null);
-      const params = new URLSearchParams();
-      if (selectedSubnet) params.append('subnet', selectedSubnet);
-
-      const response = await fetchWithLogs(`${API_URL}/transactions?${params.toString()}`);
-      setTransactions(response.data);
-    } catch (error) {
-      console.error('Error loading transactions:', error);
-      setError('Failed to load transactions');
-    }
-  };
-
-  // Fonction de recherche
-  const handleSearch = async () => {
-    if (!searchQuery) return;
-
-    setLoading(true);
-    setError(null);
-    try {
-      const response = await fetchWithLogs(`${API_URL}/search?query=${searchQuery}&type=${searchType}`);
-      setTransactions(response.data);
-    } catch (error) {
-      console.error('Error searching:', error);
-      setError('Search failed');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Charger les données initiales
-  useEffect(() => {
-    console.log('Loading initial data...');
-    loadStats();
-    loadTransactions();
-
-    // Rafraîchir les données toutes les 10 secondes
-    const interval = setInterval(() => {
-      console.log('Refreshing data...');
-      loadStats();
-      loadTransactions();
-    }, 10000);
-
-    return () => clearInterval(interval);
-  }, [selectedSubnet]);
+  if (error) {
+    return (
+      <div className="flex justify-center items-center min-h-screen">
+        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">
+          <strong className="font-bold">Erreur!</strong>
+          <span className="block sm:inline"> {error}</span>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <main className="min-h-screen p-8 bg-gray-100">
-      <h1 className="text-4xl font-bold mb-8"></h1>
-
-      {/* Afficher les erreurs */}
-      {error && (
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4">
-          {error}
-        </div>
-      )}
-
-      {/* Statistiques */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-        <div className="bg-white p-6 rounded-lg shadow">
-          <h2 className="text-xl font-semibold mb-4">Transactions par Subnet</h2>
-          {stats.transactions.map((stat: any) => (
-            <div key={stat.subnet} className="flex justify-between mb-2">
-              <span>{stat.subnet}</span>
-              <span className="font-mono">{stat.count}</span>
-            </div>
-          ))}
-        </div>
-
-        <div className="bg-white p-6 rounded-lg shadow">
-          <h2 className="text-xl font-semibold mb-4">Volume par Subnet</h2>
-          {stats.volumes.map((stat: any) => (
-            <div key={stat.subnet} className="flex justify-between mb-2">
-              <span>{stat.subnet}</span>
-              <span className="font-mono">{parseFloat(stat.volume).toFixed(4)}</span>
-            </div>
-          ))}
-        </div>
-
-        <div className="bg-white p-6 rounded-lg shadow">
-          <h2 className="text-xl font-semibold mb-4">Smart Contracts</h2>
-          <div className="flex justify-between">
-            <span>Total Déployés</span>
-            <span className="font-mono">{stats.contracts?.count || 0}</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Barre de recherche */}
-      <div className="bg-white p-6 rounded-lg shadow mb-8">
-        <div className="flex gap-4">
-          <select
-            className="px-4 py-2 border rounded"
-            value={searchType}
-            onChange={(e) => setSearchType(e.target.value)}
-          >
-            <option value="address">Adresse</option>
-            <option value="hash">Hash</option>
-            <option value="contract">Contract</option>
-          </select>
-
-          <input
-            type="text"
-            placeholder="Rechercher..."
-            className="flex-1 px-4 py-2 border rounded"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
-          />
-
-          <button
-            className="px-6 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-            onClick={handleSearch}
-            disabled={loading}
-          >
-            {loading ? 'Recherche...' : 'Rechercher'}
-          </button>
-
-          <select
-            className="px-4 py-2 border rounded"
-            value={selectedSubnet}
-            onChange={(e) => setSelectedSubnet(e.target.value)}
-          >
-            <option value="">Tous les Subnets</option>
-            <option value="C-Chain">C-Chain</option>
-            <option value="DFK">DFK</option>
-            <option value="Swimmer">Swimmer</option>
-            <option value="Dexalot">Dexalot</option>
-          </select>
-        </div>
-      </div>
-
-      {/* Liste des transactions */}
-      <div className="bg-white rounded-lg shadow overflow-hidden">
-        <table className="min-w-full">
-          <thead className="bg-gray-50">
+    <main className="container mx-auto px-4 py-8">
+      <h1 className="text-3xl font-bold mb-8">Transactions Récentes</h1>
+      
+      <div className="overflow-x-auto">
+        <table className="min-w-full bg-white shadow-md rounded-lg overflow-hidden">
+          <thead className="bg-gray-100">
             <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Hash</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">From</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">To</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Amount</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Subnet</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Time</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Hash</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">De</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">À</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Montant</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Subnet</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-200">
-            {transactions.map((tx: any) => (
+            {transactions.map((tx) => (
               <tr key={tx.hash} className="hover:bg-gray-50">
-                <td className="px-6 py-4 font-mono text-sm">{formatAddress(tx.hash)}</td>
-                <td className="px-6 py-4 font-mono text-sm">{formatAddress(tx.from_address)}</td>
-                <td className="px-6 py-4 font-mono text-sm">{formatAddress(tx.to_address)}</td>
-                <td className="px-6 py-4 text-sm">{parseFloat(tx.amount).toFixed(4)}</td>
-                <td className="px-6 py-4 text-sm">{tx.subnet}</td>
-                <td className="px-6 py-4 text-sm">{formatTimestamp(tx.timestamp)}</td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-blue-500">
+                  <a href={`https://snowtrace.io/tx/${tx.hash}`} target="_blank" rel="noopener noreferrer">
+                    {shortenAddress(tx.hash)}
+                  </a>
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  {shortenAddress(tx.from_address)}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  {shortenAddress(tx.to_address)}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  {formatAmount(tx.amount)}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  {formatDate(tx.timestamp)}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  {tx.subnet}
+                </td>
               </tr>
             ))}
           </tbody>

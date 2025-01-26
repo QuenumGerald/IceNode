@@ -1,4 +1,5 @@
 import './globals.css'
+import Link from 'next/link'
 
 export const metadata = {
   title: 'IceNode',
@@ -27,10 +28,10 @@ export default function RootLayout({
               </div>
               {/* Navigation */}
               <div className="flex space-x-4">
-                <a href="/" className="text-gray-700 hover:text-blue-600">Transactions</a>
-                <a href="/contracts" className="text-gray-700 hover:text-blue-600">Smart Contracts</a>
-                <a href="/events" className="text-gray-700 hover:text-blue-600">Events</a>
-                <a href="/wallets" className="text-gray-700 hover:text-blue-600">Wallets</a>
+                <Link href="/" className="text-gray-700 hover:text-blue-600">Transactions</Link>
+                <Link href="/contracts" className="text-gray-700 hover:text-blue-600">Smart Contracts</Link>
+                <Link href="/events" className="text-gray-700 hover:text-blue-600">Events</Link>
+                <Link href="/wallets" className="text-gray-700 hover:text-blue-600">Wallets</Link>
               </div>
             </div>
           </div>
