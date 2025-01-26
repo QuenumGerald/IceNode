@@ -22,3 +22,5 @@ buildCommand = "cd dashboard && rm -rf node_modules && npm install && npm run bu
 startCommand = "cd dashboard && npm start"
 healthcheckPath = "/"
 port = 8080
+[[services.env]]
+NEXT_PUBLIC_API_URL = "https://icenode-production.up.railway.app"
