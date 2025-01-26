@@ -315,40 +315,55 @@ app.get('/contract-calls/function/:name', async (req, res, next) => {
 app.get('/stats', async (req, res, next) => {
     try {
         console.log('GET /stats');
-        const stats = {};
+        const stats = {
+            transactions: [],
+            volumes: [],
+            contracts: { count: 0 }
+        };
         
-        // Utiliser une Promise pour gérer les requêtes asynchrones
-        const promises = [
+        try {
             // Nombre total de transactions par subnet
-            asyncAll(
+            stats.transactions = await asyncAll(
                 `SELECT subnet, COUNT(*) as count 
                  FROM transactions 
                  GROUP BY subnet`
-            ),
+            ) || [];
+        } catch (err) {
+            console.error('Error fetching transaction stats:', err);
+            stats.transactions = [];
+        }
+
+        try {
             // Volume total par subnet
-            asyncAll(
-                `SELECT subnet, SUM(CAST(amount AS DECIMAL)) as volume 
+            stats.volumes = await asyncAll(
+                `SELECT subnet, SUM(CAST(value AS DECIMAL)) as volume 
                  FROM transactions 
                  GROUP BY subnet`
-            ),
+            ) || [];
+        } catch (err) {
+            console.error('Error fetching volume stats:', err);
+            stats.volumes = [];
+        }
+
+        try {
             // Nombre de smart contracts déployés
-            asyncAll(
+            const contracts = await asyncAll(
                 `SELECT COUNT(*) as count 
                  FROM contract_deployments`
-            )
-        ];
-        
-        const [txCounts, volumes, contracts] = await Promise.all(promises);
-        
-        console.log('Stats response:', { transactions: txCounts, volumes, contracts });
-        res.json({
-            transactions: txCounts,
-            volumes: volumes,
-            contracts: contracts
-        });
+            );
+            stats.contracts = contracts?.[0] || { count: 0 };
+        } catch (err) {
+            console.error('Error fetching contract stats:', err);
+            stats.contracts = { count: 0 };
+        }
+
+        res.json(stats);
     } catch (err) {
-        console.error('Error in /stats:', err);
-        next(err);
+        console.error('Error in /stats endpoint:', err);
+        res.status(500).json({ 
+            error: 'Internal server error',
+            message: 'Failed to fetch statistics'
+        });
     }
 });
 
