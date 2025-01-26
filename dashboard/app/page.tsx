@@ -33,6 +33,11 @@ interface Transaction {
   value: string;
   subnet: string;
   created_at: string;
+  is_contract_creation: boolean;
+  is_contract: boolean;
+  contract_address?: string;
+  contract_code?: string;
+  contract_abi?: string;
 }
 
 interface SubnetStats {
@@ -75,6 +80,7 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
   const [selectedSubnet, setSelectedSubnet] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
+  const [searchType, setSearchType] = useState('all'); // 'all', 'address', 'contract', 'hash'
 
   const loadStats = useCallback(async () => {
     try {
@@ -92,7 +98,10 @@ export default function Home() {
       setError(null);
       const params = new URLSearchParams();
       if (selectedSubnet) params.append('subnet', selectedSubnet);
-      if (searchQuery) params.append('search', searchQuery);
+      if (searchQuery) {
+        params.append('search', searchQuery);
+        params.append('type', searchType);
+      }
       
       const response = await axios.get(`${API_URL}/transactions?${params.toString()}`);
       setTransactions(response.data || []);
@@ -102,7 +111,7 @@ export default function Home() {
     } finally {
       setLoading(false);
     }
-  }, [selectedSubnet, searchQuery]);
+  }, [selectedSubnet, searchQuery, searchType]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -203,13 +212,25 @@ export default function Home() {
         <div className="px-4 py-5 sm:px-6 flex flex-col sm:flex-row justify-between items-center space-y-4 sm:space-y-0">
           <h2 className="text-lg font-medium leading-6 text-gray-900">Transactions Récentes</h2>
           <div className="flex flex-col sm:flex-row space-y-4 sm:space-y-0 sm:space-x-4 w-full sm:w-auto">
-            <input
-              type="text"
-              placeholder="Rechercher une adresse ou un hash..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="rounded-md border-gray-300 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50 w-full sm:w-96"
-            />
+            <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2">
+              <input
+                type="text"
+                placeholder="Rechercher..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="rounded-md border-gray-300 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50 w-full sm:w-96"
+              />
+              <select
+                value={searchType}
+                onChange={(e) => setSearchType(e.target.value)}
+                className="rounded-md border-gray-300 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
+              >
+                <option value="all">Tout</option>
+                <option value="address">Adresse</option>
+                <option value="contract">Contrat</option>
+                <option value="hash">Hash</option>
+              </select>
+            </div>
             <select
               value={selectedSubnet}
               onChange={(e) => setSelectedSubnet(e.target.value)}
@@ -231,6 +252,7 @@ export default function Home() {
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">From</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">To</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Value</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Subnet</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Time</th>
                 </tr>
@@ -249,12 +271,31 @@ export default function Home() {
                       </a>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      <a href={`https://subnets.avax.network/address/${tx.to_address}`} target="_blank" rel="noopener noreferrer">
-                        {tx.to_address.slice(0, 6)}...{tx.to_address.slice(-4)}
-                      </a>
+                      {tx.to_address ? (
+                        <a href={`https://subnets.avax.network/address/${tx.to_address}`} target="_blank" rel="noopener noreferrer">
+                          {tx.to_address.slice(0, 6)}...{tx.to_address.slice(-4)}
+                        </a>
+                      ) : (
+                        <span className="text-yellow-600">Contract Creation</span>
+                      )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {formatAvax(tx.value)} AVAX
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm">
+                      {tx.is_contract_creation ? (
+                        <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">
+                          Contract Creation
+                        </span>
+                      ) : tx.is_contract ? (
+                        <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
+                          Contract Call
+                        </span>
+                      ) : (
+                        <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">
+                          Transfer
+                        </span>
+                      )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {SUBNETS[tx.subnet as keyof typeof SUBNETS] || tx.subnet}

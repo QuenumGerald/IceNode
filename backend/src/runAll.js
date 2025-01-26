@@ -10,7 +10,7 @@ app.use(cors());
 app.get('/transactions', async (req, res) => {
     try {
         const db = await getDb();
-        const { subnet, search } = req.query;
+        const { subnet, search, type = 'all' } = req.query;
         
         let query = 'SELECT * FROM transactions';
         const params = [];
@@ -22,10 +22,34 @@ app.get('/transactions', async (req, res) => {
         }
         
         if (search) {
-            conditions.push('(hash ILIKE $' + (params.length + 1) + 
-                         ' OR from_address ILIKE $' + (params.length + 1) + 
-                         ' OR to_address ILIKE $' + (params.length + 1) + ')');
-            params.push(`%${search}%`);
+            switch (type) {
+                case 'address':
+                    conditions.push('(from_address ILIKE $' + (params.length + 1) + 
+                                 ' OR to_address ILIKE $' + (params.length + 1) + ')');
+                    params.push(`%${search}%`);
+                    break;
+                    
+                case 'contract':
+                    conditions.push('(is_contract = true OR is_contract_creation = true)');
+                    if (search !== 'true') {
+                        conditions.push('(contract_address ILIKE $' + (params.length + 1) + 
+                                     ' OR to_address ILIKE $' + (params.length + 1) + ')');
+                        params.push(`%${search}%`);
+                    }
+                    break;
+                    
+                case 'hash':
+                    conditions.push('hash ILIKE $' + (params.length + 1));
+                    params.push(`%${search}%`);
+                    break;
+                    
+                default: // 'all'
+                    conditions.push('(hash ILIKE $' + (params.length + 1) + 
+                                 ' OR from_address ILIKE $' + (params.length + 1) + 
+                                 ' OR to_address ILIKE $' + (params.length + 1) + 
+                                 ' OR contract_address ILIKE $' + (params.length + 1) + ')');
+                    params.push(`%${search}%`);
+            }
         }
         
         if (conditions.length > 0) {
