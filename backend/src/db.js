@@ -1,13 +1,11 @@
 const { Pool } = require('pg');
 
-// Configuration du pool avec les valeurs Railway par défaut
+// Configuration du pool avec l'URL de connexion complète
 const pool = new Pool({
-    user: 'postgres',
-    password: 'egmMpvjpbAXVIZTAlWsGSSsWcVSQPgtE',
-    host: 'postgres.railway.internal',
-    port: 5432,
-    database: 'railway',
-    ssl: false // Désactivé pour les connexions internes Railway
+    connectionString: 'postgres://postgres:egmMpvjpbAXVIZTAlWsGSSsWcVSQPgtE@viaduct.proxy.rlwy.net:42069/railway',
+    ssl: {
+        rejectUnauthorized: false
+    }
 });
 
 // Fonction pour attendre avec un délai
@@ -18,12 +16,6 @@ async function connectWithRetry(maxRetries = 5) {
     for (let i = 0; i < maxRetries; i++) {
         try {
             console.log(`Tentative de connexion à PostgreSQL (${i + 1}/${maxRetries})...`);
-            console.log('Configuration de connexion:', {
-                host: pool.options.host,
-                port: pool.options.port,
-                database: pool.options.database,
-                user: pool.options.user
-            });
             
             const client = await pool.connect();
             console.log('Connexion à PostgreSQL établie avec succès');
