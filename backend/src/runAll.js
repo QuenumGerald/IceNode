@@ -21,23 +21,76 @@ app.get('/transactions', async (req, res) => {
     }
 });
 
-// Route pour les statistiques
+// Route pour les statistiques détaillées
 app.get('/stats', async (req, res) => {
     try {
         const db = await getDb();
-        const result = await db.query(`
+        
+        // 1. Nombre de transactions par subnet
+        const transactionCountQuery = `
             SELECT 
                 subnet,
-                COUNT(*) as transaction_count
+                COUNT(*) as transaction_count,
+                COUNT(DISTINCT from_address) as unique_senders,
+                COUNT(DISTINCT to_address) as unique_receivers,
+                SUM(CAST(value AS DECIMAL)) as total_volume,
+                AVG(CAST(value AS DECIMAL)) as average_value,
+                MAX(CAST(value AS DECIMAL)) as max_value,
+                MIN(CAST(value AS DECIMAL)) as min_value
             FROM transactions 
             GROUP BY subnet
-        `);
-        res.json(result.rows || []); // Retourne un tableau vide si pas de résultats
+        `;
+        
+        // 2. Top 5 des adresses par volume
+        const topAddressesQuery = `
+            WITH address_volumes AS (
+                SELECT 
+                    from_address as address,
+                    subnet,
+                    SUM(CAST(value AS DECIMAL)) as volume
+                FROM transactions
+                GROUP BY from_address, subnet
+            )
+            SELECT 
+                address,
+                subnet,
+                volume
+            FROM address_volumes
+            ORDER BY volume DESC
+            LIMIT 5
+        `;
+
+        // 3. Activité par période
+        const activityQuery = `
+            SELECT 
+                subnet,
+                date_trunc('hour', created_at) as period,
+                COUNT(*) as tx_count
+            FROM transactions
+            WHERE created_at >= NOW() - INTERVAL '24 hours'
+            GROUP BY subnet, period
+            ORDER BY period DESC
+        `;
+
+        // Exécution des requêtes en parallèle
+        const [transactionStats, topAddresses, activity] = await Promise.all([
+            db.query(transactionCountQuery),
+            db.query(topAddressesQuery),
+            db.query(activityQuery)
+        ]);
+
+        res.json({
+            stats: transactionStats.rows || [],
+            topAddresses: topAddresses.rows || [],
+            activity: activity.rows || []
+        });
     } catch (error) {
         console.error('Error fetching stats:', error);
         res.status(500).json({ 
             error: 'Internal server error',
-            stats: [] // Retourne un tableau vide en cas d'erreur
+            stats: [],
+            topAddresses: [],
+            activity: []
         });
     }
 });

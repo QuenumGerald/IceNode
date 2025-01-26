@@ -5,6 +5,13 @@ import axios from 'axios';
 
 const API_URL = 'https://icenode-production.up.railway.app';
 
+const SUBNETS = {
+  'mainnet': 'C-Chain',
+  'dfk': 'DFK Chain',
+  'swimmer': 'Swimmer Network',
+  'dexalot': 'Dexalot'
+};
+
 interface Transaction {
   hash: string;
   from_address: string;
@@ -14,14 +21,42 @@ interface Transaction {
   created_at: string;
 }
 
-interface Stats {
+interface SubnetStats {
   subnet: string;
   transaction_count: number;
+  unique_senders: number;
+  unique_receivers: number;
+  total_volume: number;
+  average_value: number;
+  max_value: number;
+  min_value: number;
+}
+
+interface TopAddress {
+  address: string;
+  subnet: string;
+  volume: number;
+}
+
+interface ActivityPeriod {
+  subnet: string;
+  period: string;
+  tx_count: number;
+}
+
+interface Stats {
+  stats: SubnetStats[];
+  topAddresses: TopAddress[];
+  activity: ActivityPeriod[];
 }
 
 export default function Home() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [stats, setStats] = useState<Stats[]>([]);
+  const [stats, setStats] = useState<Stats>({
+    stats: [],
+    topAddresses: [],
+    activity: []
+  });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedSubnet, setSelectedSubnet] = useState('');
@@ -29,7 +64,7 @@ export default function Home() {
   const loadStats = useCallback(async () => {
     try {
       const response = await axios.get(`${API_URL}/stats`);
-      setStats(response.data || []);
+      setStats(response.data || { stats: [], topAddresses: [], activity: [] });
     } catch (err) {
       console.error('Error fetching stats:', err);
       setError('Failed to load statistics. Please try again later.');
@@ -85,19 +120,82 @@ export default function Home() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-        {stats.map((stat) => (
+      {/* Statistiques par subnet */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        {stats.stats.map((stat) => (
           <div key={stat.subnet} className="bg-white shadow rounded-lg p-6">
-            <h3 className="text-lg font-semibold mb-2">{stat.subnet || 'Unknown Subnet'}</h3>
-            <p className="text-3xl font-bold">{stat.transaction_count.toLocaleString()}</p>
-            <p className="text-gray-600">transactions</p>
+            <h3 className="text-lg font-semibold mb-4">{SUBNETS[stat.subnet as keyof typeof SUBNETS] || stat.subnet}</h3>
+            <div className="space-y-3">
+              <div>
+                <p className="text-3xl font-bold">{stat.transaction_count.toLocaleString()}</p>
+                <p className="text-gray-600">transactions</p>
+              </div>
+              <div>
+                <p className="text-xl font-semibold">{stat.total_volume.toLocaleString()} AVAX</p>
+                <p className="text-gray-600">volume total</p>
+              </div>
+              <div className="grid grid-cols-2 gap-2 text-sm">
+                <div>
+                  <p className="font-medium">{stat.unique_senders.toLocaleString()}</p>
+                  <p className="text-gray-600">émetteurs</p>
+                </div>
+                <div>
+                  <p className="font-medium">{stat.unique_receivers.toLocaleString()}</p>
+                  <p className="text-gray-600">récepteurs</p>
+                </div>
+              </div>
+            </div>
           </div>
         ))}
       </div>
 
+      {/* Top Adresses */}
+      <div className="bg-white shadow rounded-lg p-6 mb-8">
+        <h2 className="text-xl font-semibold mb-4">Top 5 Adresses par Volume</h2>
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Adresse</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Subnet</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Volume</th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {stats.topAddresses.map((address) => (
+                <tr key={address.address}>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-blue-600">
+                    <a href={`https://subnets.avax.network/address/${address.address}`} target="_blank" rel="noopener noreferrer">
+                      {address.address.slice(0, 8)}...{address.address.slice(-6)}
+                    </a>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    {SUBNETS[address.subnet as keyof typeof SUBNETS] || address.subnet}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    {address.volume.toLocaleString()} AVAX
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Transactions Récentes */}
       <div className="bg-white shadow rounded-lg overflow-hidden">
-        <div className="px-4 py-5 sm:px-6">
-          <h2 className="text-lg font-medium leading-6 text-gray-900">Recent Transactions</h2>
+        <div className="px-4 py-5 sm:px-6 flex justify-between items-center">
+          <h2 className="text-lg font-medium leading-6 text-gray-900">Transactions Récentes</h2>
+          <select
+            value={selectedSubnet}
+            onChange={(e) => setSelectedSubnet(e.target.value)}
+            className="rounded-md border-gray-300 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
+          >
+            <option value="">Tous les Subnets</option>
+            {Object.entries(SUBNETS).map(([value, label]) => (
+              <option key={value} value={value}>{label}</option>
+            ))}
+          </select>
         </div>
         <div className="border-t border-gray-200">
           <div className="overflow-x-auto">
@@ -121,16 +219,20 @@ export default function Home() {
                       </a>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {tx.from_address.slice(0, 6)}...{tx.from_address.slice(-4)}
+                      <a href={`https://subnets.avax.network/address/${tx.from_address}`} target="_blank" rel="noopener noreferrer">
+                        {tx.from_address.slice(0, 6)}...{tx.from_address.slice(-4)}
+                      </a>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {tx.to_address.slice(0, 6)}...{tx.to_address.slice(-4)}
+                      <a href={`https://subnets.avax.network/address/${tx.to_address}`} target="_blank" rel="noopener noreferrer">
+                        {tx.to_address.slice(0, 6)}...{tx.to_address.slice(-4)}
+                      </a>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {parseFloat(tx.value).toLocaleString()} AVAX
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {tx.subnet}
+                      {SUBNETS[tx.subnet as keyof typeof SUBNETS] || tx.subnet}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {new Date(tx.created_at).toLocaleString()}
