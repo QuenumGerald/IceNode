@@ -3,8 +3,12 @@ const axios = require('axios');
 const db = require('./database');
 const ethers = require('ethers');
 
-const RPC_URL = process.env.RPC_URL;
-const SUBNET_RPC_URLS = JSON.parse(process.env.SUBNET_RPC_URLS || '{}');
+// URLs en dur
+const RPC_URL = 'https://api.avax.network/ext/bc/C/rpc';
+const SUBNET_RPC_URLS = {
+    'DFK': 'https://subnets.avax.network/defi-kingdoms/dfk-chain/rpc',
+    'Dexalot': 'https://subnets.avax.network/dexalot/mainnet/rpc'
+};
 
 console.log('Starting indexer with configuration:');
 console.log('RPC_URL:', RPC_URL);
