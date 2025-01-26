@@ -7,6 +7,13 @@ require('dotenv').config({ path: path.join(__dirname, '../.env') });
 const app = express();
 const PORT = process.env.PORT || 3001;
 
+// Configuration CORS
+app.use(cors({
+    origin: ['https://ice-front-production.up.railway.app', 'http://localhost:3000'],
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization']
+}));
+
 // Error handling middleware
 const errorHandler = (err, req, res, next) => {
     console.error('Global error handler:', err);
@@ -18,11 +25,6 @@ const errorHandler = (err, req, res, next) => {
 };
 
 // Middlewares
-app.use(cors({
-    origin: '*',
-    methods: ['GET', 'POST', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization']
-}));
 app.use(express.json());
 
 // Request logging middleware
