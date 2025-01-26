@@ -11,10 +11,13 @@ app.get('/transactions', async (req, res) => {
     try {
         const db = await getDb();
         const result = await db.query('SELECT * FROM transactions ORDER BY created_at DESC LIMIT 100');
-        res.json(result.rows);
+        res.json(result.rows || []); // Retourne un tableau vide si pas de résultats
     } catch (error) {
         console.error('Error fetching transactions:', error);
-        res.status(500).json({ error: 'Internal server error' });
+        res.status(500).json({ 
+            error: 'Internal server error',
+            transactions: [] // Retourne un tableau vide en cas d'erreur
+        });
     }
 });
 
@@ -29,16 +32,23 @@ app.get('/stats', async (req, res) => {
             FROM transactions 
             GROUP BY subnet
         `);
-        res.json(result.rows);
+        res.json(result.rows || []); // Retourne un tableau vide si pas de résultats
     } catch (error) {
         console.error('Error fetching stats:', error);
-        res.status(500).json({ error: 'Internal server error' });
+        res.status(500).json({ 
+            error: 'Internal server error',
+            stats: [] // Retourne un tableau vide en cas d'erreur
+        });
     }
 });
 
 // Route de santé
 app.get('/health', (req, res) => {
-    res.json({ status: 'healthy' });
+    res.json({ 
+        status: 'healthy',
+        timestamp: new Date().toISOString(),
+        database: 'connected'
+    });
 });
 
 // Initialiser la base de données et démarrer le serveur
