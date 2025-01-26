@@ -3,16 +3,16 @@ const axios = require('axios');
 const db = require('./database');
 const ethers = require('ethers');
 
-// URLs en dur
-const RPC_URL = 'https://api.avax.network/ext/bc/C/rpc';
-const SUBNET_RPC_URLS = {
-    'DFK': 'https://subnets.avax.network/defi-kingdoms/dfk-chain/rpc',
-    'Dexalot': 'https://subnets.avax.network/dexalot/mainnet/rpc'
+// Configuration en dur
+const RPC_URLS = {
+    'mainnet': 'https://api.avax.network/ext/bc/C/rpc',
+    'dfk': 'https://subnets.avax.network/defi-kingdoms/dfk-chain/rpc',
+    'swimmer': 'https://subnets.avax.network/swimmer/mainnet/rpc',
+    'dexalot': 'https://subnets.avax.network/dexalot/mainnet/rpc'
 };
 
 console.log('Starting indexer with configuration:');
-console.log('RPC_URL:', RPC_URL);
-console.log('SUBNET_RPC_URLS:', SUBNET_RPC_URLS);
+console.log('RPC_URLS:', RPC_URLS);
 
 // Fonction pour convertir les valeurs hex en nombres
 function hexToNumber(hex) {
@@ -103,11 +103,13 @@ async function indexAllChains() {
     console.log('Starting indexing cycle...');
     
     // Indexer C-Chain
-    await fetchBlockTransactions(RPC_URL);
+    await fetchBlockTransactions(RPC_URLS['mainnet']);
 
     // Indexer les subnets
-    for (const [subnet, url] of Object.entries(SUBNET_RPC_URLS)) {
-        await fetchBlockTransactions(url, subnet);
+    for (const [subnet, url] of Object.entries(RPC_URLS)) {
+        if (subnet !== 'mainnet') {
+            await fetchBlockTransactions(url, subnet);
+        }
     }
     
     console.log('Finished indexing cycle');

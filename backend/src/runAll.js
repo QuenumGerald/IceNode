@@ -1,20 +1,21 @@
 const { spawn } = require('child_process');
 const path = require('path');
 const fs = require('fs');
-require('dotenv').config({ path: path.join(__dirname, '../.env') });
 const displayBanner = require('./banner');
 
 // Afficher le banner au démarrage
 displayBanner();
 
 // Configuration
-const DB_PATH = process.env.DB_PATH || path.join(__dirname, '../data/icenode.db');
+const DB_PATH = '/data/icenode.db';
 const DB_DIR = path.dirname(DB_PATH);
+const RPC_URL = 'https://api.avax.network/ext/bc/C/rpc';
+const SUBNET_RPC_URLS = ['https://api.avax.network/ext/bc/C/rpc', 'https://api.dfkchain.com/ext/bc/C/rpc', 'https://dexalot-rpc.com/ext/bc/C/rpc'];
 
 console.log('Environment variables:');
-console.log('DB_PATH:', process.env.DB_PATH);
-console.log('RPC_URL:', process.env.RPC_URL);
-console.log('SUBNET_RPC_URLS:', process.env.SUBNET_RPC_URLS);
+console.log('DB_PATH:', DB_PATH);
+console.log('RPC_URL:', RPC_URL);
+console.log('SUBNET_RPC_URLS:', SUBNET_RPC_URLS);
 console.log('NODE_ENV:', process.env.NODE_ENV);
 
 // Fonction pour s'assurer que le dossier data existe avec les bonnes permissions
@@ -59,7 +60,12 @@ function startProcess(scriptPath, args = [], name = '') {
     try {
         const nodeProcess = spawn('node', [scriptPath, ...args], {
             stdio: 'inherit',
-            env: process.env
+            env: {
+                ...process.env,
+                DB_PATH: DB_PATH,
+                RPC_URL: RPC_URL,
+                SUBNET_RPC_URLS: SUBNET_RPC_URLS.join(',')
+            }
         });
         
         nodeProcess.on('error', (err) => {
