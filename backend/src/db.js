@@ -1,8 +1,8 @@
 const { Pool } = require('pg');
 
-// URL de connexion en dur
+// URL de connexion Railway
 const pool = new Pool({
-    connectionString: 'postgresql://postgres:egmMpvjpbAXVIZTAlWsGSSsWcVSQPgtE@postgres.railway.internal:5432/railway',
+    connectionString: 'postgresql://postgres:egmMpvjpbAXVIZTAlWsGSSsWcVSQPgtE@monorail.proxy.rlwy.net:42069/railway',
     ssl: {
         rejectUnauthorized: false
     }
