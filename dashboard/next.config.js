@@ -9,15 +9,7 @@ const nextConfig = {
   typescript: {
     // Désactiver la vérification TypeScript pendant le build
     ignoreBuildErrors: true,
-  },
-  async rewrites() {
-    return [
-      {
-        source: '/api/:path*',
-        destination: 'http://localhost:3001/:path*'
-      }
-    ]
   }
 }
 
-export default nextConfig;
+module.exports = nextConfig;
