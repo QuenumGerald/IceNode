@@ -1,24 +1,23 @@
 [build]
 builder = "nixpacks"
-buildCommand = "npm run install:all && npm run build"
 
 [deploy]
-startCommand = "npm start"
-healthcheckPath = "/health"
 healthcheckTimeout = 100
 restartPolicyType = "on_failure"
 
-[deploy.railway]
-name = "icenode"
-
 [env]
 NODE_ENV = "production"
-PORT = "3001"
 
 [[services]]
-name = "api"
-envs = []
+name = "backend"
+buildCommand = "cd backend && npm install"
+startCommand = "cd backend && npm start"
+healthcheckPath = "/health"
+port = 3001
 
 [[services]]
 name = "dashboard"
-envs = []
+buildCommand = "cd dashboard && npm install && npm run build"
+startCommand = "cd dashboard && npm start"
+healthcheckPath = "/"
+port = 3000
