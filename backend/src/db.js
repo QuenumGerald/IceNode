@@ -1,18 +1,13 @@
 const { Pool } = require('pg');
 
-// Configuration du pool avec des timeouts et retries
+// Configuration du pool avec les valeurs Railway par défaut
 const pool = new Pool({
-    user: process.env.PGUSER || 'postgres',
-    password: process.env.PGPASSWORD || 'egmMpvjpbAXVIZTAlWsGSSsWcVSQPgtE',
-    host: process.env.PGHOST || 'monorail.proxy.rlwy.net',
-    port: process.env.PGPORT || 42069,
-    database: process.env.PGDATABASE || 'railway',
-    ssl: {
-        rejectUnauthorized: false
-    },
-    connectionTimeoutMillis: 10000,
-    idleTimeoutMillis: 30000,
-    max: 20
+    user: 'postgres',
+    password: 'egmMpvjpbAXVIZTAlWsGSSsWcVSQPgtE',
+    host: 'postgres.railway.internal',
+    port: 5432,
+    database: 'railway',
+    ssl: false // Désactivé pour les connexions internes Railway
 });
 
 // Fonction pour attendre avec un délai
@@ -24,10 +19,10 @@ async function connectWithRetry(maxRetries = 5) {
         try {
             console.log(`Tentative de connexion à PostgreSQL (${i + 1}/${maxRetries})...`);
             console.log('Configuration de connexion:', {
-                host: process.env.PGHOST || 'monorail.proxy.rlwy.net',
-                port: process.env.PGPORT || 42069,
-                database: process.env.PGDATABASE || 'railway',
-                user: process.env.PGUSER || 'postgres'
+                host: pool.options.host,
+                port: pool.options.port,
+                database: pool.options.database,
+                user: pool.options.user
             });
             
             const client = await pool.connect();
