@@ -43,24 +43,48 @@ app.get('/health', (req, res) => {
 
 // Initialiser la base de données et démarrer le serveur
 async function start() {
-    try {
-        // Initialiser la base de données
-        await initDb();
-        
-        // Démarrer le serveur sur le port défini par Railway ou 3000 par défaut
-        const port = process.env.PORT || 3000;
-        app.listen(port, '0.0.0.0', () => {
-            console.log(`Server running on port ${port}`);
-        });
+    let retries = 5;
+    let lastError = null;
 
-        // Démarrer l'indexeur
-        startIndexing().catch(error => {
-            console.error('Indexer error:', error);
-        });
-    } catch (error) {
-        console.error('Failed to start server:', error);
-        process.exit(1);
+    while (retries > 0) {
+        try {
+            console.log(`Démarrage de l'application (tentative ${6 - retries}/5)...`);
+            
+            // Initialiser la base de données
+            await initDb();
+            
+            // Démarrer le serveur sur le port défini par Railway ou 3000 par défaut
+            const port = process.env.PORT || 3000;
+            app.listen(port, '0.0.0.0', () => {
+                console.log(`Serveur démarré sur le port ${port}`);
+            });
+
+            // Démarrer l'indexeur
+            startIndexing().catch(error => {
+                console.error('Erreur de l\'indexeur:', error);
+            });
+
+            // Si on arrive ici, tout s'est bien passé
+            console.log('Application démarrée avec succès !');
+            return;
+
+        } catch (error) {
+            console.error(`Erreur au démarrage (tentative ${6 - retries}/5):`, error);
+            lastError = error;
+            retries--;
+
+            if (retries > 0) {
+                const delay = Math.min(1000 * Math.pow(2, 5 - retries), 10000);
+                console.log(`Nouvelle tentative dans ${delay/1000} secondes...`);
+                await new Promise(resolve => setTimeout(resolve, delay));
+            }
+        }
     }
+
+    // Si on arrive ici, toutes les tentatives ont échoué
+    console.error('Impossible de démarrer l\'application après 5 tentatives');
+    console.error('Dernière erreur:', lastError);
+    process.exit(1);
 }
 
 start();
