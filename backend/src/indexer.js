@@ -1,6 +1,6 @@
 require('dotenv').config();
 const axios = require('axios');
-const db = require('./database');
+const { getDb } = require('./db');
 const ethers = require('ethers');
 
 // Configuration en dur
@@ -22,80 +22,99 @@ function hexToNumber(hex) {
 
 async function fetchBlockTransactions(rpcUrl, subnet) {
     try {
-        console.log(`Fetching transactions from ${subnet || 'C-Chain'} (${rpcUrl})`);
+        console.log(`[${new Date().toISOString()}] Fetching transactions from ${subnet || 'C-Chain'} (${rpcUrl})`);
 
         const response = await axios.post(rpcUrl, {
             jsonrpc: '2.0',
             id: 1,
-            method: 'eth_getBlockByNumber',
-            params: ['latest', true],
+            method: 'eth_blockNumber',
+            params: []
         }, {
-            timeout: 10000 // 10 secondes timeout
+            timeout: 10000,
+            headers: {
+                'Content-Type': 'application/json',
+            }
         });
 
-        if (!response.data || !response.data.result) {
-            console.error(`No data received from ${subnet || 'C-Chain'}`);
-            console.error('Response:', JSON.stringify(response.data, null, 2));
-            return;
+        console.log(`[${new Date().toISOString()}] Got block number: ${response.data.result}`);
+        
+        const blockNumber = parseInt(response.data.result, 16);
+        console.log(`[${new Date().toISOString()}] Parsed block number: ${blockNumber}`);
+
+        const transactions = [];
+        const startBlock = Math.max(1, blockNumber - 10);
+
+        for (let i = startBlock; i <= blockNumber; i++) {
+            console.log(`[${new Date().toISOString()}] Fetching block ${i}/${blockNumber}`);
+            try {
+                const blockResponse = await axios.post(rpcUrl, {
+                    jsonrpc: '2.0',
+                    id: 1,
+                    method: 'eth_getBlockByNumber',
+                    params: [`0x${i.toString(16)}`, true]
+                }, {
+                    timeout: 10000,
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                });
+
+                if (blockResponse.data.result && blockResponse.data.result.transactions) {
+                    transactions.push(...blockResponse.data.result.transactions);
+                }
+            } catch (blockError) {
+                console.error(`[${new Date().toISOString()}] Error fetching block ${i}: ${blockError.message}`);
+                continue;
+            }
         }
 
-        const block = response.data.result;
-        const timestamp = hexToNumber(block.timestamp);
-        const blockNumber = hexToNumber(block.number);
-
-        console.log(`Processing block ${blockNumber} from ${subnet || 'C-Chain'} with ${block.transactions.length} transactions`);
-
-        // Utiliser une transaction SQLite pour l'atomicité
-        await db.asyncRun('BEGIN TRANSACTION');
+        console.log(`[${new Date().toISOString()}] Found ${transactions.length} transactions`);
+        
+        // Sauvegarde en DB
+        const db = await getDb();
+        const client = await db.connect();
 
         try {
-            for (const tx of block.transactions) {
-                await db.asyncRun(
-                    `INSERT OR REPLACE INTO transactions (
-                        hash, 
-                        from_address, 
-                        to_address, 
-                        amount, 
-                        timestamp, 
-                        subnet,
-                        block_number
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-                    [
+            await client.query('BEGIN');
+            
+            const insertQuery = `
+                INSERT INTO transactions (hash, from_address, to_address, value, subnet)
+                VALUES ($1, $2, $3, $4, $5)
+                ON CONFLICT (hash) DO UPDATE SET
+                    from_address = EXCLUDED.from_address,
+                    to_address = EXCLUDED.to_address,
+                    value = EXCLUDED.value,
+                    subnet = EXCLUDED.subnet
+            `;
+
+            for (const tx of transactions) {
+                try {
+                    await client.query(insertQuery, [
                         tx.hash,
                         tx.from,
                         tx.to,
-                        (hexToNumber(tx.value) / 1e18).toString(), // Convertir wei en AVAX
-                        timestamp,
-                        subnet || 'C-Chain',
-                        blockNumber
-                    ]
-                );
-
-                // Si c'est un déploiement de contrat (to est null)
-                if (!tx.to && tx.creates) {
-                    await db.asyncRun(
-                        `INSERT OR REPLACE INTO contract_deployments (
-                            contract_address,
-                            deployment_tx_hash,
-                            timestamp
-                        ) VALUES (?, ?, ?)`,
-                        [tx.creates, tx.hash, timestamp]
-                    );
+                        tx.value,
+                        subnet || 'mainnet'
+                    ]);
+                } catch (dbError) {
+                    console.error(`[${new Date().toISOString()}] DB Error for tx ${tx.hash}: ${dbError.message}`);
                 }
             }
 
-            await db.asyncRun('COMMIT');
-            console.log(`Successfully indexed ${block.transactions.length} transactions from ${subnet || 'C-Chain'}`);
-        } catch (err) {
-            console.error(`Error during database operations for ${subnet || 'C-Chain'}:`, err);
-            await db.asyncRun('ROLLBACK');
-            throw err;
+            await client.query('COMMIT');
+            console.log(`[${new Date().toISOString()}] Successfully saved transactions to DB`);
+        } catch (error) {
+            await client.query('ROLLBACK');
+            throw error;
+        } finally {
+            client.release();
         }
-    } catch (err) {
-        console.error(`Error fetching transactions from ${subnet || 'C-Chain'}:`, err.message);
-        if (err.response) {
-            console.error('Response data:', err.response.data);
-        }
+        
+        return transactions;
+    } catch (error) {
+        console.error(`[${new Date().toISOString()}] Error in fetchBlockTransactions for ${subnet || 'C-Chain'}: ${error.message}`);
+        console.error(error.stack);
+        throw error;
     }
 }
 
@@ -115,20 +134,19 @@ async function indexAllChains() {
     console.log('Finished indexing cycle');
 }
 
-// Exécuter l'indexation toutes les 10 secondes
 async function startIndexing() {
     console.log('Indexer started');
 
     while (true) {
         try {
             await indexAllChains();
-        } catch (err) {
-            console.error('Error in indexing cycle:', err);
+            await new Promise(resolve => setTimeout(resolve, 10000)); // Attendre 10 secondes
+        } catch (error) {
+            console.error('Error in indexing cycle:', error);
+            await new Promise(resolve => setTimeout(resolve, 5000)); // Attendre 5 secondes en cas d'erreur
         }
-        await new Promise(resolve => setTimeout(resolve, 10000));
     }
 }
 
-// Démarrer l'indexation
 console.log('Starting indexer...');
 startIndexing().catch(console.error);
