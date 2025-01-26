@@ -36,18 +36,33 @@ app.use((req, res, next) => {
 // Health check endpoint
 app.get('/health', async (req, res) => {
     try {
-        const database = await connectToDatabase();
-        await asyncAll('SELECT 1');
-        res.json({ 
-            status: 'healthy',
+        // Test de la base de données
+        const dbTest = await asyncAll('SELECT COUNT(*) as count FROM transactions');
+        const memoryUsage = process.memoryUsage();
+        
+        res.json({
+            status: 'ok',
             timestamp: new Date().toISOString(),
-            database: 'connected'
+            database: {
+                connected: true,
+                transactionCount: dbTest[0]?.count || 0
+            },
+            memory: {
+                heapUsed: Math.round(memoryUsage.heapUsed / 1024 / 1024) + 'MB',
+                heapTotal: Math.round(memoryUsage.heapTotal / 1024 / 1024) + 'MB',
+                rss: Math.round(memoryUsage.rss / 1024 / 1024) + 'MB'
+            },
+            environment: {
+                nodeEnv: process.env.NODE_ENV,
+                port: process.env.PORT
+            },
+            version: process.version
         });
     } catch (err) {
         console.error('Health check failed:', err);
-        res.status(500).json({ 
+        res.status(500).json({
             status: 'error',
-            message: 'Database connection failed',
+            timestamp: new Date().toISOString(),
             error: err.message
         });
     }
