@@ -98,12 +98,12 @@ const Home: NextPage = () => {
     try {
       setLoading(true);
       setError(null);
-      
+
       const params = new URLSearchParams();
       if (searchParams.query) params.append('query', searchParams.query);
       if (searchParams.subnet) params.append('subnet', searchParams.subnet);
       if (searchParams.isContract) params.append('isContract', searchParams.isContract);
-      
+
       const response = await axios.get(`${API_URL}/search?${params.toString()}`);
       if (response.data.success) {
         setTransactions(response.data.transactions);
@@ -128,7 +128,7 @@ const Home: NextPage = () => {
         params.append('search', searchQuery);
         params.append('type', searchType);
       }
-      
+
       const response = await axios.get(`${API_URL}/transactions?${params.toString()}`);
       setTransactions(response.data || []);
     } catch (err) {
@@ -167,10 +167,10 @@ const Home: NextPage = () => {
   return (
     <main className="min-h-screen bg-gray-50">
       <div className="container mx-auto px-4 py-8">
-        <h1 className="text-3xl font-bold mb-8">IceNode Explorer</h1>
-        
+        <h1 className="text-3xl font-bold mb-8"></h1>
+
         <Search onSearch={handleSearch} />
-        
+
         {error && (
           <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-6">
             {error}
