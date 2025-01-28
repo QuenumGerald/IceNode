@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import { ethers } from 'ethers';
 import Search from '../components/Search';
+import type { NextPage } from 'next';
 
 const API_URL = 'https://icenode-production.up.railway.app';
 
@@ -70,7 +71,7 @@ interface Stats {
   activity: ActivityPeriod[];
 }
 
-export default function Home() {
+const Home: NextPage = () => {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [stats, setStats] = useState<Stats>({
     stats: [],
@@ -345,3 +346,5 @@ export default function Home() {
     </main>
   );
 }
+
+export default Home;
