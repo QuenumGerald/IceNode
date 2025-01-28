@@ -5,6 +5,15 @@ let pool = null;
 // Fonction pour attendre avec un délai
 const wait = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
+// Configuration du nettoyage de la base de données
+const DB_CONFIG = {
+    RETENTION_HOURS: 1, // Garder seulement 1 heure de données
+    CLEANUP_INTERVAL_MS: 60 * 60 * 1000, // Nettoyer toutes les heures
+    MAX_TRANSACTIONS: 1000000, // Limite maximale de transactions
+    BATCH_SIZE: 10000, // Taille des lots pour la suppression
+    BATCH_PAUSE_MS: 1000 // Pause entre les lots
+};
+
 // Nettoyage périodique de la base de données
 async function cleanDatabase() {
     if (!pool) return;
@@ -12,27 +21,59 @@ async function cleanDatabase() {
     try {
         const client = await pool.connect();
         try {
-            // On garde seulement les transactions des 2 dernières heures
-            const twoHoursAgo = new Date();
-            twoHoursAgo.setHours(twoHoursAgo.getHours() - 2);
+            console.log(`[${new Date().toISOString()}] Début du nettoyage de la base de données...`);
             
-            // Supprimer les anciennes transactions
-            const result = await client.query(`
-                DELETE FROM transactions 
-                WHERE created_at < $1
-                RETURNING COUNT(*)
-            `, [twoHoursAgo]);
+            // Vérifier le nombre total de transactions
+            const countResult = await client.query('SELECT COUNT(*) as total FROM transactions');
+            const totalTransactions = parseInt(countResult.rows[0].total);
+            console.log(`[${new Date().toISOString()}] Nombre total de transactions: ${totalTransactions}`);
             
-            console.log(`[${new Date().toISOString()}] Nettoyage BDD : ${result.rows[0].count} transactions supprimées`);
+            // On garde seulement les transactions de la dernière heure
+            const cutoffTime = new Date();
+            cutoffTime.setHours(cutoffTime.getHours() - DB_CONFIG.RETENTION_HOURS);
             
-            // VACUUM pour récupérer l'espace disque
-            await client.query('VACUUM FULL');
-            console.log(`[${new Date().toISOString()}] VACUUM terminé`);
+            // Supprimer les anciennes transactions par lots
+            let totalDeleted = 0;
+            while (true) {
+                const result = await client.query(`
+                    WITH deleted AS (
+                        DELETE FROM transactions 
+                        WHERE created_at < $1 
+                        OR ctid IN (
+                            SELECT ctid FROM transactions 
+                            ORDER BY created_at DESC 
+                            OFFSET $2
+                        )
+                        LIMIT $3
+                        RETURNING *
+                    )
+                    SELECT COUNT(*) as count FROM deleted;
+                `, [cutoffTime, DB_CONFIG.MAX_TRANSACTIONS, DB_CONFIG.BATCH_SIZE]);
+                
+                const deletedCount = parseInt(result.rows[0].count);
+                totalDeleted += deletedCount;
+                
+                console.log(`[${new Date().toISOString()}] Lot supprimé: ${deletedCount} transactions`);
+                
+                if (deletedCount < DB_CONFIG.BATCH_SIZE) break;
+                
+                // Pause entre les lots
+                await wait(DB_CONFIG.BATCH_PAUSE_MS);
+            }
+            
+            console.log(`[${new Date().toISOString()}] Nettoyage BDD terminé: ${totalDeleted} transactions supprimées au total`);
+            
+            if (totalDeleted > 0) {
+                // VACUUM simple pour libérer l'espace
+                await client.query('VACUUM transactions;');
+                console.log(`[${new Date().toISOString()}] VACUUM terminé`);
+            }
+            
         } finally {
             client.release();
         }
     } catch (err) {
-        console.error('Erreur lors du nettoyage de la base de données:', err);
+        console.error(`[${new Date().toISOString()}] Erreur lors du nettoyage de la base de données:`, err);
     }
 }
 
@@ -157,12 +198,12 @@ async function initDb() {
 
             // Créer les nouveaux index
             const createIndexes = [
-                'CREATE INDEX idx_transactions_from_address ON transactions(from_address)',
-                'CREATE INDEX idx_transactions_to_address ON transactions(to_address)',
-                'CREATE INDEX idx_transactions_subnet ON transactions(subnet)',
-                'CREATE INDEX idx_transactions_created_at ON transactions(created_at)',
-                'CREATE INDEX idx_transactions_is_contract ON transactions(is_contract)',
-                'CREATE INDEX idx_transactions_contract_address ON transactions(contract_address)'
+                'CREATE INDEX IF NOT EXISTS idx_transactions_from_address ON transactions(from_address)',
+                'CREATE INDEX IF NOT EXISTS idx_transactions_to_address ON transactions(to_address)',
+                'CREATE INDEX IF NOT EXISTS idx_transactions_subnet ON transactions(subnet)',
+                'CREATE INDEX IF NOT EXISTS idx_transactions_created_at ON transactions(created_at)',
+                'CREATE INDEX IF NOT EXISTS idx_transactions_is_contract ON transactions(is_contract)',
+                'CREATE INDEX IF NOT EXISTS idx_transactions_contract_address ON transactions(contract_address)'
             ];
 
             for (const createIndex of createIndexes) {
@@ -180,8 +221,8 @@ async function initDb() {
             // Premier nettoyage
             await cleanDatabase();
 
-            // Planifier le nettoyage toutes les 2 heures
-            setInterval(cleanDatabase, 2 * 60 * 60 * 1000);
+            // Planifier le nettoyage toutes les heures
+            setInterval(cleanDatabase, DB_CONFIG.CLEANUP_INTERVAL_MS);
 
         } finally {
             client.release();
