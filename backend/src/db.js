@@ -36,21 +36,24 @@ async function cleanDatabase() {
             let totalDeleted = 0;
             while (true) {
                 const result = await client.query(`
-                    WITH deleted AS (
-                        DELETE FROM transactions 
+                    WITH to_delete AS (
+                        SELECT ctid 
+                        FROM transactions 
                         WHERE created_at < $1 
                         OR ctid IN (
-                            SELECT ctid FROM transactions 
+                            SELECT ctid 
+                            FROM transactions 
                             ORDER BY created_at DESC 
                             OFFSET $2
                         )
                         LIMIT $3
-                        RETURNING *
                     )
-                    SELECT COUNT(*) as count FROM deleted;
+                    DELETE FROM transactions 
+                    WHERE ctid IN (SELECT ctid FROM to_delete)
+                    RETURNING *;
                 `, [cutoffTime, DB_CONFIG.MAX_TRANSACTIONS, DB_CONFIG.BATCH_SIZE]);
                 
-                const deletedCount = parseInt(result.rows[0].count);
+                const deletedCount = result.rowCount;
                 totalDeleted += deletedCount;
                 
                 console.log(`[${new Date().toISOString()}] Lot supprimé: ${deletedCount} transactions`);
